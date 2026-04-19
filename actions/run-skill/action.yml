@@ -1,0 +1,53 @@
+name: 'Sentriage: Run Skill'
+description: 'Run a triage skill against a vulnerability report issue using Claude Code'
+
+inputs:
+  github-token:
+    description: 'PAT with repo scope'
+    required: true
+  issue-number:
+    description: 'Issue number in the sentriage instance repo'
+    required: true
+  skill:
+    description: 'Name of a built-in skill (e.g., check-duplicates). Mutually exclusive with skill-path.'
+    required: false
+  skill-path:
+    description: 'Path to a custom skill markdown file. Mutually exclusive with skill.'
+    required: false
+  config-file:
+    description: 'Path to sentriage.yml config file'
+    required: false
+    default: 'sentriage.yml'
+
+outputs:
+  recommendation:
+    description: 'Agent recommendation: duplicate, invalid, valid, or needs-more-info'
+    value: ${{ steps.run.outputs.recommendation }}
+  confidence:
+    description: 'Confidence score (0.0 to 1.0)'
+    value: ${{ steps.run.outputs.confidence }}
+  severity:
+    description: 'Assessed severity: critical, high, medium, low, or unknown'
+    value: ${{ steps.run.outputs.severity }}
+  manipulation_detected:
+    description: 'Whether prompt injection or manipulation was detected'
+    value: ${{ steps.run.outputs.manipulation_detected }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install dependencies
+      shell: bash
+      run: pip3 install pyyaml 2>/dev/null || pip install pyyaml
+
+    - name: Run skill
+      id: run
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        ISSUE_NUMBER: ${{ inputs.issue-number }}
+        SKILL: ${{ inputs.skill }}
+        SKILL_PATH: ${{ inputs.skill-path }}
+        CONFIG_FILE: ${{ inputs.config-file }}
+        SENTRIAGE_ROOT: ${{ github.action_path }}/../..
+      run: bash ${{ github.action_path }}/run.sh
