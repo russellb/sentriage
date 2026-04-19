@@ -6,7 +6,9 @@
 
 **Architecture:** GitHub Actions as the orchestration layer, a private GitHub repo as the data store (issues correspond to vulnerability reports, labels drive a state machine), and containerized `claude -p` as the AI runtime. Each skill runs in isolation — no context shared between reports or between skills.
 
-**Tech Stack:** GitHub Actions (composite actions with shell scripts), Bash, `gh` CLI, `jq`, Claude CLI (`claude -p` with `--output-format stream-json`), container image `registry.access.redhat.com/ubi9/ubi-minimal:latest`
+**Tech Stack:** GitHub Actions (composite actions with shell scripts), Bash, Python 3, `gh` CLI, `jq`, Claude CLI (`claude -p` with `--output-format stream-json`), container image `registry.access.redhat.com/ubi9/ubi-minimal:latest`
+
+**Reuse:** CI scripts adapted from `~/src/rfe-assessor/scripts/` — setup-claude-ci.sh, run-claude.sh, stream-claude.py, otel-collector.py, otel-summary.py
 
 **Spec:** `docs/specs/2026-04-17-sentriage-architecture-design.md`
 
@@ -22,18 +24,21 @@ sentriage/
 │   │   └── detect.sh           # GHSA polling logic, issue creation/update
 │   ├── run-skill/
 │   │   ├── action.yml          # GitHub Action definition — inputs, outputs, runs
-│   │   ├── run.sh              # Container launch, prompt assembly, output parsing
-│   │   └── parse-output.sh     # Extract structured JSON from stream-json output
+│   │   └── run.sh              # Prompt assembly, invoke run-claude.sh, parse result, post comment
 │   └── finalize-triage/
 │       ├── action.yml          # GitHub Action definition — inputs, outputs, runs
 │       └── finalize.sh         # Summarize skill results, transition labels
+├── scripts/
+│   ├── setup-claude-ci.sh      # Container bootstrap (adapted from rfe-assessor)
+│   ├── run-claude.sh           # Claude orchestration: OTEL, FIFO streaming, lifecycle (adapted)
+│   ├── stream-claude.py        # Stream-json parser: live display, token accounting (adapted)
+│   ├── otel-collector.py       # OTLP HTTP receiver for token/cost metrics (from rfe-assessor)
+│   └── otel-summary.py         # Post-run token/cost summary (from rfe-assessor)
 ├── skills/
 │   ├── check-duplicates.md     # Skill prompt: duplicate detection
 │   ├── check-validity.md       # Skill prompt: vulnerability validation against source
 │   └── assess-severity.md      # Skill prompt: CVSS severity assessment
 ├── base-instructions.md        # Security guardrails, always layered first
-├── container/
-│   └── setup.sh                # Container bootstrap: install deps, create user, install claude
 ├── examples/
 │   ├── workflows/
 │   │   ├── basic-triage.yml    # Reference: cron → detect → triage → finalize
@@ -48,53 +53,61 @@ sentriage/
 │   └── security.md             # Security model documentation
 ├── tests/
 │   ├── test-detect.sh          # Tests for detect-reports action
-│   ├── test-parse-output.sh    # Tests for output parsing
 │   ├── test-finalize.sh        # Tests for finalize-triage action
 │   └── fixtures/
 │       ├── ghsa-response.json  # Sample GHSA API response
-│       ├── stream-output.json  # Sample claude stream-json output
 │       └── sentriage.yml       # Test config file
 └── README.md                   # Project overview with logo, quick start
 ```
 
 ---
 
-## Task 1: Container Setup Script
+## Task 1: CI Scripts (adapted from rfe-assessor)
 
 **Files:**
-- Create: `container/setup.sh`
+- Create: `scripts/setup-claude-ci.sh` — adapted from `~/src/rfe-assessor/scripts/setup-claude-ci.sh`
+- Create: `scripts/run-claude.sh` — adapted from `~/src/rfe-assessor/scripts/run-claude.sh`
+- Create: `scripts/stream-claude.py` — copied from `~/src/rfe-assessor/scripts/stream-claude.py`
+- Create: `scripts/otel-collector.py` — copied from `~/src/rfe-assessor/scripts/otel-collector.py`
+- Create: `scripts/otel-summary.py` — copied from `~/src/rfe-assessor/scripts/otel-summary.py`
 
-This is the foundation — everything else depends on the container being able to run Claude.
+**Source reference:** Read the originals from `~/src/rfe-assessor/scripts/` for the exact code.
 
-- [ ] **Step 1: Write the container setup script**
+**Adaptations needed:**
+
+`setup-claude-ci.sh` changes from rfe-assessor:
+- Remove the GCP-specific key decoding (`echo "$GCP_SERVICE_ACCOUNT_KEY" | base64 -d > /tmp/gcp-key.json`) — auth backend setup is the caller's responsibility
+- Use `$WORKSPACE_DIR` env var (default `/workspace`) instead of hardcoded `$CI_PROJECT_DIR`
+- Add safe.directory for workspace subdirectories the agent needs
+
+`run-claude.sh` changes from rfe-assessor:
+- Remove JIRA-specific preflight checks (JIRA_USER, GCP_PROJECT_ID, GCP_SERVICE_ACCOUNT_KEY)
+- Remove plugin cloning section (CLAUDE_PLUGINS loop)
+- Remove CLAUDE_REPO cloning section — sentriage manages its own workspace
+- Keep: re-exec as non-root, PATH setup, claude --version, OTEL collector startup, FIFO streaming, stream-claude.py invocation, lifecycle management, OTEL summary, artifact copy
+- Add: accept prompt as $1, workspace dir as $2 (defaults to current dir)
+- Keep the CI_PROJECT_DIR artifact copy for GitHub Actions artifact upload (use GITHUB_WORKSPACE)
+
+`stream-claude.py` — copy as-is. The "FULL RUN COMPLETE" sentinel detection can stay; sentriage won't use it in v1 but it doesn't hurt. The live token accounting and tool display are valuable.
+
+`otel-collector.py` — copy as-is, no changes needed.
+
+`otel-summary.py` — copy as-is, no changes needed.
+
+- [ ] **Step 1: Copy otel-collector.py and otel-summary.py from rfe-assessor (no changes)**
+
+- [ ] **Step 2: Copy stream-claude.py from rfe-assessor (no changes)**
+
+- [ ] **Step 3: Adapt setup-claude-ci.sh (remove GCP-specific code, parameterize workspace)**
+
+- [ ] **Step 4: Adapt run-claude.sh (remove plugin/repo cloning, remove JIRA checks, keep orchestration)**
+
+- [ ] **Step 5: Make all scripts executable and commit**
 
 ```bash
-#!/bin/bash
-# Bootstrap a UBI9-minimal container for running Claude Code.
-# Expected env vars:
-#   CLAUDE_USER (default: claude-ci) — non-root user to run Claude as
-#   WORKSPACE_DIR (default: /workspace) — working directory for the agent
-set -euo pipefail
-
-CLAUDE_USER="${CLAUDE_USER:-claude-ci}"
-WORKSPACE_DIR="${WORKSPACE_DIR:-/workspace}"
-
-microdnf install -y --nodocs git-core shadow-utils util-linux python3 python3-pip diffutils
-useradd -m "$CLAUDE_USER"
-curl -fsSL https://claude.ai/install.sh | runuser -l "$CLAUDE_USER" -c bash
-
-if [ -d "$WORKSPACE_DIR" ]; then
-  chown -R "$CLAUDE_USER":"$CLAUDE_USER" "$WORKSPACE_DIR"
-  runuser -u "$CLAUDE_USER" -- git config --global --add safe.directory "$WORKSPACE_DIR"
-fi
-```
-
-- [ ] **Step 2: Make it executable and commit**
-
-```bash
-chmod +x container/setup.sh
-git add container/setup.sh
-git commit -m "feat: add container setup script for Claude CI runtime"
+chmod +x scripts/*.sh scripts/*.py
+git add scripts/
+git commit -m "feat: add CI scripts adapted from rfe-assessor (claude orchestration, OTEL, streaming)"
 ```
 
 ---
@@ -204,14 +217,14 @@ git commit -m "feat: add base security instructions for agent guardrails"
 
 ---
 
-## Task 3: Output Parser
+## Task 3: Result Extraction Script
 
 **Files:**
-- Create: `actions/run-skill/parse-output.sh`
-- Create: `tests/test-parse-output.sh`
-- Create: `tests/fixtures/stream-output.json`
+- Create: `scripts/extract-result.py`
 
-The output parser extracts structured JSON from Claude's `stream-json` output. Build this before the `run-skill` action since it's a self-contained unit we can test independently.
+A small Python script that reads Claude's stream-json output (after stream-claude.py has displayed it), extracts the final text content, parses it as JSON, and writes structured fields to files for the action to read. This is invoked by `run.sh` after `run-claude.sh` completes.
+
+stream-claude.py handles live display but doesn't extract the structured result. We need a separate pass to get the JSON result from Claude's text output.
 
 - [ ] **Step 1: Create test fixtures — sample stream-json output**
 
