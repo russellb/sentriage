@@ -41,20 +41,28 @@ monitored_repos:
 
 See [Configuration](configuration.md) for all options.
 
-### 4. Add a workflow
+### 4. Add workflows
 
-Copy one of the reference workflows to `.github/workflows/` in your
-instance repo:
+Copy the reference workflows to `.github/workflows/` in your instance repo.
+You need two workflows — one for syncing reports, one for triage:
 
+**Sync workflow** (always needed):
+- **[sync-reports.yml](../examples/workflows/sync-reports.yml)** —
+  Polls monitored repos on a schedule and creates/updates issues.
+  Uses the privileged `SENTRIAGE_PAT`.
+
+**Triage workflow** (pick one):
 - **[basic-triage.yml](../examples/workflows/basic-triage.yml)** —
-  Fully automated: detect > triage > finalize on a schedule
+  Runs Claude triage automatically when sync creates an issue with
+  `needs-triage` label. Uses the default `GITHUB_TOKEN`.
 - **[gated-triage.yml](../examples/workflows/gated-triage.yml)** —
-  Detect on schedule, but wait for a human to apply `needs-triage`
-  before running skills
+  Waits for a human to apply `needs-triage` before running triage.
+  Use with `--initial-label new-report` in the sync workflow.
 
-### 5. Create labels
+### 5. Labels
 
-Create the following labels in your instance repo:
+Labels are created automatically by the sync script on first run.
+The following labels will be created:
 
 | Label | Color (suggested) |
 |---|---|

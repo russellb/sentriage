@@ -36,15 +36,26 @@ A list of repositories to monitor for security advisories.
 - `context_refs` are files within the monitored repo that provide
   useful context (security policies, threat models, etc.)
 
+## sync-reports.py
+
+The sync script runs separately from Claude and handles polling monitored
+repos for new/updated security advisories.
+
+```
+python3 scripts/sync-reports.py --config sentriage.yml [--initial-label needs-triage] [--dry-run]
+```
+
+| Argument | Default | Description |
+|---|---|---|
+| `--config` | `sentriage.yml` | Path to config file |
+| `--initial-label` | `needs-triage` | Label for new issues (`needs-triage` or `new-report`) |
+| `--dry-run` | — | Show what would be done without making changes |
+
+Requires `GITHUB_TOKEN` env var with `security_events` and `repo` scope.
+
+The sync script also creates any missing sentriage labels on first run.
+
 ## Action Inputs
-
-### detect-reports
-
-| Input | Required | Default | Description |
-|---|---|---|---|
-| `github-token` | yes | — | PAT with `security_events` and `repo` scope |
-| `config-file` | no | `sentriage.yml` | Path to config file |
-| `initial-label` | no | `needs-triage` | Label for new issues |
 
 ### run-skill
 

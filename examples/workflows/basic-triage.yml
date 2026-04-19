@@ -1,60 +1,60 @@
-name: Basic Triage Workflow
+# Triage workflow: run Claude skills when new issues are created or
+# when the needs-triage label is applied.
+#
+# This workflow uses the default GITHUB_TOKEN which only has access to
+# the instance repo. It does NOT have access to monitored repos' advisories.
+
+name: Sentriage Triage
 
 on:
-  schedule:
-    - cron: '0 */6 * * *'  # Every 6 hours
-  workflow_dispatch:
+  issues:
+    types: [opened, labeled]
 
 jobs:
-  detect:
-    runs-on: ubuntu-latest
-    outputs:
-      new-issues: ${{ steps.detect.outputs.new-issues }}
-    steps:
-      - name: Detect new reports
-        id: detect
-        uses: sentriage/sentriage/actions/detect-reports@main
-        with:
-          github-token: ${{ secrets.SENTRIAGE_PAT }}
-          initial-label: needs-triage
-
   triage:
-    needs: detect
-    if: needs.detect.outputs.new-issues != '[]'
+    if: >
+      (github.event.action == 'opened' && contains(github.event.issue.labels.*.name, 'needs-triage')) ||
+      (github.event.action == 'labeled' && github.event.label.name == 'needs-triage')
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        issue: ${{ fromJson(needs.detect.outputs.new-issues) }}
-      max-parallel: 1
     steps:
-      - name: Check for duplicates
-        id: check-duplicates
-        uses: sentriage/sentriage/actions/run-skill@main
+      - uses: actions/checkout@v4
         with:
-          github-token: ${{ secrets.SENTRIAGE_PAT }}
-          issue-number: ${{ matrix.issue }}
+          repository: sentriage/sentriage
+          path: sentriage
+
+      - uses: actions/checkout@v4
+        with:
+          path: instance
+
+      - name: Check duplicates
+        id: check-duplicates
+        uses: ./sentriage/actions/run-skill
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.issue.number }}
           skill: check-duplicates
 
       - name: Check validity
         id: check-validity
         if: steps.check-duplicates.outputs.recommendation != 'duplicate'
-        uses: sentriage/sentriage/actions/run-skill@main
+        uses: ./sentriage/actions/run-skill
         with:
-          github-token: ${{ secrets.SENTRIAGE_PAT }}
-          issue-number: ${{ matrix.issue }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.issue.number }}
           skill: check-validity
 
       - name: Assess severity
-        id: assess-severity
-        if: steps.check-duplicates.outputs.recommendation != 'duplicate' && steps.check-validity.outputs.recommendation != 'invalid'
-        uses: sentriage/sentriage/actions/run-skill@main
+        if: >
+          steps.check-duplicates.outputs.recommendation != 'duplicate' &&
+          steps.check-validity.outputs.recommendation != 'invalid'
+        uses: ./sentriage/actions/run-skill
         with:
-          github-token: ${{ secrets.SENTRIAGE_PAT }}
-          issue-number: ${{ matrix.issue }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.issue.number }}
           skill: assess-severity
 
       - name: Finalize triage
-        uses: sentriage/sentriage/actions/finalize-triage@main
+        uses: ./sentriage/actions/finalize-triage
         with:
-          github-token: ${{ secrets.SENTRIAGE_PAT }}
-          issue-number: ${{ matrix.issue }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.issue.number }}

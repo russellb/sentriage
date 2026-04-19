@@ -1,0 +1,35 @@
+# Sync workflow: poll monitored repos for new/updated security advisories
+# and create/update tracking issues.
+#
+# This workflow uses a privileged PAT (SENTRIAGE_PAT) with security_events
+# scope to read advisories from monitored repos. It does NOT run Claude.
+
+name: Sentriage Sync Reports
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: sentriage/sentriage
+          sparse-checkout: scripts
+          path: sentriage
+
+      - uses: actions/checkout@v4
+        with:
+          path: instance
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Sync reports
+        env:
+          GITHUB_TOKEN: ${{ secrets.SENTRIAGE_PAT }}
+        working-directory: instance
+        run: python3 ../sentriage/scripts/sync-reports.py --config sentriage.yml
