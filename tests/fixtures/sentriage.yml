@@ -1,0 +1,12 @@
+# Test fixture: example sentriage configuration
+monitored_repos:
+  - repo: vllm-project/vllm
+    clone: true
+    context_refs:
+      - SECURITY.md
+  - repo: llm-d/llm-d
+    clone: true
+    context_refs:
+      - docs/security-policy.md
+  - repo: example/no-clone
+    clone: false
