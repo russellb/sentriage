@@ -1,0 +1,58 @@
+name: Gated Triage Workflow
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+
+jobs:
+  detect:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      new-issues: ${{ steps.detect.outputs.new-issues }}
+    steps:
+      - name: Detect new reports
+        id: detect
+        uses: sentriage/sentriage/actions/detect-reports@main
+        with:
+          github-token: ${{ secrets.SENTRIAGE_PAT }}
+          initial-label: new-report
+
+  triage:
+    if: github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'needs-triage'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for duplicates
+        id: check-duplicates
+        uses: sentriage/sentriage/actions/run-skill@main
+        with:
+          github-token: ${{ secrets.SENTRIAGE_PAT }}
+          issue-number: ${{ github.event.issue.number }}
+          skill: check-duplicates
+
+      - name: Check validity
+        id: check-validity
+        if: steps.check-duplicates.outputs.recommendation != 'duplicate'
+        uses: sentriage/sentriage/actions/run-skill@main
+        with:
+          github-token: ${{ secrets.SENTRIAGE_PAT }}
+          issue-number: ${{ github.event.issue.number }}
+          skill: check-validity
+
+      - name: Assess severity
+        id: assess-severity
+        if: steps.check-duplicates.outputs.recommendation != 'duplicate' && steps.check-validity.outputs.recommendation != 'invalid'
+        uses: sentriage/sentriage/actions/run-skill@main
+        with:
+          github-token: ${{ secrets.SENTRIAGE_PAT }}
+          issue-number: ${{ github.event.issue.number }}
+          skill: assess-severity
+
+      - name: Finalize triage
+        uses: sentriage/sentriage/actions/finalize-triage@main
+        with:
+          github-token: ${{ secrets.SENTRIAGE_PAT }}
+          issue-number: ${{ github.event.issue.number }}

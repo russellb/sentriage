@@ -1,0 +1,8 @@
+# Example sentriage configuration for monitoring repositories.
+# Copy this to sentriage.yml in your instance repo and customize.
+
+monitored_repos:
+  - repo: your-org/your-repo
+    clone: true
+    context_refs:
+      - SECURITY.md

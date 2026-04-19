@@ -1,0 +1,60 @@
+name: Basic Triage Workflow
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  workflow_dispatch:
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      new-issues: ${{ steps.detect.outputs.new-issues }}
+    steps:
+      - name: Detect new reports
+        id: detect
+        uses: sentriage/sentriage/actions/detect-reports@main
+        with:
+          github-token: ${{ secrets.SENTRIAGE_PAT }}
+          initial-label: needs-triage
+
+  triage:
+    needs: detect
+    if: needs.detect.outputs.new-issues != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        issue: ${{ fromJson(needs.detect.outputs.new-issues) }}
+      max-parallel: 1
+    steps:
+      - name: Check for duplicates
+        id: check-duplicates
+        uses: sentriage/sentriage/actions/run-skill@main
+        with:
+          github-token: ${{ secrets.SENTRIAGE_PAT }}
+          issue-number: ${{ matrix.issue }}
+          skill: check-duplicates
+
+      - name: Check validity
+        id: check-validity
+        if: steps.check-duplicates.outputs.recommendation != 'duplicate'
+        uses: sentriage/sentriage/actions/run-skill@main
+        with:
+          github-token: ${{ secrets.SENTRIAGE_PAT }}
+          issue-number: ${{ matrix.issue }}
+          skill: check-validity
+
+      - name: Assess severity
+        id: assess-severity
+        if: steps.check-duplicates.outputs.recommendation != 'duplicate' && steps.check-validity.outputs.recommendation != 'invalid'
+        uses: sentriage/sentriage/actions/run-skill@main
+        with:
+          github-token: ${{ secrets.SENTRIAGE_PAT }}
+          issue-number: ${{ matrix.issue }}
+          skill: assess-severity
+
+      - name: Finalize triage
+        uses: sentriage/sentriage/actions/finalize-triage@main
+        with:
+          github-token: ${{ secrets.SENTRIAGE_PAT }}
+          issue-number: ${{ matrix.issue }}
