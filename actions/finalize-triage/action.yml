@@ -1,0 +1,20 @@
+name: 'Sentriage: Finalize Triage'
+description: 'Summarize triage results and transition issue to triaged + needs-review'
+
+inputs:
+  github-token:
+    description: 'PAT with repo scope'
+    required: true
+  issue-number:
+    description: 'Issue number to finalize'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Finalize triage
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        ISSUE_NUMBER: ${{ inputs.issue-number }}
+      run: bash ${{ github.action_path }}/finalize.sh
