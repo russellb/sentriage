@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: sentriage/sentriage
+          repository: russellb/sentriage
           path: sentriage
 
       - uses: actions/checkout@v4
