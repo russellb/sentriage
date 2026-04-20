@@ -92,6 +92,38 @@ print(json.dumps(repos))
   done
 }
 
+collect_context_refs() {
+  local config_file="$1" workspace="$2"
+  local context_dir="$workspace/context"
+  mkdir -p "$context_dir"
+
+  if [ ! -f "$config_file" ]; then
+    return
+  fi
+
+  python3 -c "
+import yaml, json, sys
+with open(sys.argv[1]) as f:
+    data = yaml.safe_load(f)
+for repo in data.get('monitored_repos', []):
+    for ref in repo.get('context_refs', []):
+        print(json.dumps({'repo': repo['repo'], 'ref': ref}))
+" "$config_file" | while IFS= read -r entry; do
+    local repo ref clone_dir src dst
+    repo=$(echo "$entry" | jq -r '.repo')
+    ref=$(echo "$entry" | jq -r '.ref')
+    clone_dir="$workspace/$(echo "$repo" | tr '/' '_')"
+    src="$clone_dir/$ref"
+    dst="$context_dir/$(echo "$repo" | tr '/' '_')__$(basename "$ref")"
+    if [ -f "$src" ]; then
+      cp "$src" "$dst"
+      echo "  Context: $repo/$ref -> $dst"
+    else
+      echo "  Warning: context ref not found: $repo/$ref" >&2
+    fi
+  done
+}
+
 assemble_prompt() {
   local skill_file="$1" report_file="$2"
   local base_instructions="${SENTRIAGE_ROOT}/base-instructions.md"
@@ -115,12 +147,23 @@ assemble_prompt() {
   prompt+="$(cat "$skill_file")"
   prompt+=$'\n\n'
 
-  # Layer 4: Reference to report file (no user content in prompt)
+  # Layer 4: Context references (project security docs, etc.)
+  local context_dir="$WORKSPACE_DIR/context"
+  if [ -d "$context_dir" ] && [ "$(ls -A "$context_dir" 2>/dev/null)" ]; then
+    prompt+="## Project Context"$'\n\n'
+    prompt+="The following project documents are available for reference:"$'\n'
+    for f in "$context_dir"/*; do
+      prompt+="- $(basename "$f"): $f"$'\n'
+    done
+    prompt+="Read these files for context about the project's security policies and guidelines."$'\n\n'
+  fi
+
+  # Layer 5: Reference to report file (no user content in prompt)
   prompt+="## Vulnerability Report"$'\n\n'
   prompt+="The vulnerability report to analyze is in the file: $report_file"$'\n'
   prompt+="Read this file to begin your analysis."$'\n\n'
 
-  # Layer 5: Output file path
+  # Layer 6: Output file path
   prompt+="## Output"$'\n\n'
   prompt+="Write your JSON result to: ${RESULT_FILE}"
 
@@ -173,6 +216,10 @@ main() {
   # Clone configured repos
   echo "--- Cloning configured repos ---"
   clone_configured_repos "$CONFIG_FILE" "$WORKSPACE_DIR"
+
+  # Collect context reference files
+  echo "--- Collecting context references ---"
+  collect_context_refs "$CONFIG_FILE" "$WORKSPACE_DIR"
 
   # Set result file path — Claude writes its JSON result here
   export RESULT_FILE="/tmp/sentriage-result.json"
