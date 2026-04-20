@@ -104,17 +104,26 @@ def ensure_labels():
 
 
 def fetch_advisories(repo, advisory_token):
-    """Fetch security advisories from a repo using the advisory token."""
-    try:
-        out = gh("api", f"repos/{repo}/security-advisories",
-                 "--header", "Accept: application/vnd.github+json",
-                 "--paginate",
-                 token=advisory_token)
-        return json.loads(out) if out else []
-    except subprocess.CalledProcessError:
-        print(f"  Warning: could not fetch advisories from {repo}",
-              file=sys.stderr)
-        return []
+    """Fetch triage and draft security advisories from a repo.
+
+    Only syncs advisories that still need attention — published advisories
+    are already public and resolved.
+    """
+    advisories = []
+    for state in ("triage", "draft"):
+        try:
+            out = gh("api", f"repos/{repo}/security-advisories?state={state}",
+                     "--header", "Accept: application/vnd.github+json",
+                     "--paginate",
+                     token=advisory_token)
+            batch = json.loads(out) if out else []
+            advisories.extend(batch)
+            if batch:
+                print(f"  Found {len(batch)} {state} advisories")
+        except subprocess.CalledProcessError:
+            print(f"  Warning: could not fetch {state} advisories from {repo}",
+                  file=sys.stderr)
+    return advisories
 
 
 def find_existing_issues():
