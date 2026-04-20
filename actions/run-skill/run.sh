@@ -118,7 +118,11 @@ assemble_prompt() {
   # Layer 4: Reference to report file (no user content in prompt)
   prompt+="## Vulnerability Report"$'\n\n'
   prompt+="The vulnerability report to analyze is in the file: $report_file"$'\n'
-  prompt+="Read this file to begin your analysis."
+  prompt+="Read this file to begin your analysis."$'\n\n'
+
+  # Layer 5: Output file path
+  prompt+="## Output"$'\n\n'
+  prompt+="Write your JSON result to: ${RESULT_FILE}"
 
   echo "$prompt"
 }
@@ -138,12 +142,14 @@ ${analysis}
 }
 
 set_outputs() {
-  local result_dir="$1"
+  local result_json="$1"
   local output_file="${GITHUB_OUTPUT:-/dev/null}"
 
   for field in recommendation confidence severity manipulation_detected; do
-    if [ -f "$result_dir/$field" ]; then
-      echo "$field=$(cat "$result_dir/$field")" >> "$output_file"
+    local value
+    value=$(jq -r ".$field // empty" "$result_json")
+    if [ -n "$value" ]; then
+      echo "$field=$value" >> "$output_file"
     fi
   done
 }
@@ -168,6 +174,10 @@ main() {
   echo "--- Cloning configured repos ---"
   clone_configured_repos "$CONFIG_FILE" "$WORKSPACE_DIR"
 
+  # Set result file path — Claude writes its JSON result here
+  export RESULT_FILE="/tmp/sentriage-result.json"
+  rm -f "$RESULT_FILE"
+
   # Assemble layered prompt (references report file, does not include its content)
   echo "--- Assembling prompt ---"
   local prompt
@@ -179,14 +189,11 @@ main() {
 
   # Make workspace accessible to claude-ci user
   chmod -R a+rX "$WORKSPACE_DIR"
+  touch "$RESULT_FILE" && chmod a+rw "$RESULT_FILE"
 
   # Run Claude via run-claude.sh (handles user switching, OTEL, FIFO streaming)
   echo "--- Running Claude ---"
   local scripts_dir="${SENTRIAGE_ROOT}/scripts"
-
-  # run-claude.sh saves raw stream-json to STREAM_CAPTURE_FILE for result extraction
-  local stream_capture="/tmp/sentriage-stream-capture.jsonl"
-  export STREAM_CAPTURE_FILE="$stream_capture"
 
   set +e
   bash "$scripts_dir/run-claude.sh" "$(cat "$prompt_file")" "$WORKSPACE_DIR"
@@ -200,24 +207,24 @@ main() {
     exit $rc
   fi
 
-  # Extract structured result
-  echo "--- Extracting result ---"
-  local result_dir="/tmp/sentriage-result"
-  rm -rf "$result_dir"
-  python3 "$scripts_dir/extract-result.py" "$stream_capture" "$result_dir"
+  # Read structured result written by Claude
+  echo "--- Reading result ---"
+  if [ ! -s "$RESULT_FILE" ]; then
+    echo "Error: Claude did not write result to $RESULT_FILE" >&2
+    exit 1
+  fi
 
-  # Read result fields
   local recommendation confidence analysis
-  recommendation=$(cat "$result_dir/recommendation" 2>/dev/null || echo "unknown")
-  confidence=$(cat "$result_dir/confidence" 2>/dev/null || echo "0.0")
-  analysis=$(cat "$result_dir/analysis" 2>/dev/null || echo "No analysis available")
+  recommendation=$(jq -r '.recommendation // "unknown"' "$RESULT_FILE")
+  confidence=$(jq -r '.confidence // 0.0' "$RESULT_FILE")
+  analysis=$(jq -r '.analysis // "No analysis available"' "$RESULT_FILE")
 
   # Post comment with results
   echo "--- Posting comment ---"
   post_comment "$ISSUE_NUMBER" "$analysis" "$skill_name" "$confidence" "$recommendation"
 
   # Set action outputs for workflow branching
-  set_outputs "$result_dir"
+  set_outputs "$RESULT_FILE"
 
   echo "=== Skill $skill_name complete: recommendation=$recommendation confidence=$confidence ==="
 }

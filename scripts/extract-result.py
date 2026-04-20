@@ -10,6 +10,7 @@ Usage: extract-result.py <stream-output-file> <output-dir>
 
 import json
 import os
+import re
 import sys
 
 
@@ -44,21 +45,36 @@ def extract_text_from_stream(stream_file):
 def parse_result(text):
     """Parse the JSON result from Claude's text output.
 
-    Claude may wrap JSON in markdown code fences — strip them if present.
+    Claude may output explanatory text before/after the JSON, and may
+    wrap the JSON in markdown code fences. This function finds the
+    JSON block regardless of surrounding text.
     """
-    stripped = text.strip()
+    # Try to extract from ```json ... ``` code fence first
+    fence_match = re.search(r"```(?:json)?\s*\n(.*?)\n\s*```", text, re.DOTALL)
+    if fence_match:
+        try:
+            return json.loads(fence_match.group(1).strip())
+        except json.JSONDecodeError:
+            pass
 
-    if stripped.startswith("```"):
-        lines = stripped.split("\n")
-        start = 1
-        if lines[0].startswith("```json"):
-            start = 1
-        end = len(lines) - 1
-        if lines[end].strip() == "```":
-            end = end
-        stripped = "\n".join(lines[start:end]).strip()
+    # Try to find a top-level JSON object in the text
+    brace_start = text.find("{")
+    if brace_start >= 0:
+        depth = 0
+        for i in range(brace_start, len(text)):
+            if text[i] == "{":
+                depth += 1
+            elif text[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(text[brace_start:i + 1])
+                    except json.JSONDecodeError:
+                        pass
+                    break
 
-    return json.loads(stripped)
+    # Last resort: try parsing the whole text as JSON
+    return json.loads(text.strip())
 
 
 def write_outputs(result, output_dir):
