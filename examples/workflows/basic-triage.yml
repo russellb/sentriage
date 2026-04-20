@@ -30,7 +30,7 @@ jobs:
         id: check-duplicates
         uses: ./sentriage/actions/run-skill
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           issue-number: ${{ github.event.issue.number }}
           skill: check-duplicates
 
@@ -39,7 +39,7 @@ jobs:
         if: steps.check-duplicates.outputs.recommendation != 'duplicate'
         uses: ./sentriage/actions/run-skill
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           issue-number: ${{ github.event.issue.number }}
           skill: check-validity
 
@@ -49,12 +49,12 @@ jobs:
           steps.check-validity.outputs.recommendation != 'invalid'
         uses: ./sentriage/actions/run-skill
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           issue-number: ${{ github.event.issue.number }}
           skill: assess-severity
 
       - name: Finalize triage
         uses: ./sentriage/actions/finalize-triage
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           issue-number: ${{ github.event.issue.number }}
