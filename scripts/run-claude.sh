@@ -46,7 +46,8 @@ export OTEL_METRIC_EXPORT_INTERVAL=10000
 
 set +e
 claude_fifo="/tmp/claude-stream.fifo"
-rm -f "$claude_fifo"
+stream_capture="${STREAM_CAPTURE_FILE:-/tmp/claude-stream-capture.jsonl}"
+rm -f "$claude_fifo" "$stream_capture"
 mkfifo "$claude_fifo"
 
 claude -p "${1:?Usage: $0 <prompt> [workdir]}" \
@@ -54,7 +55,7 @@ claude -p "${1:?Usage: $0 <prompt> [workdir]}" \
   --dangerously-skip-permissions \
   --output-format stream-json \
   --include-partial-messages \
-  --verbose 2>/tmp/claude-stderr.log > "$claude_fifo" &
+  --verbose 2>/tmp/claude-stderr.log | tee "$stream_capture" > "$claude_fifo" &
 claude_pid=$!
 
 python3 -u "$ci_scripts/stream-claude.py" --claude-pid "$claude_pid" < "$claude_fifo"
