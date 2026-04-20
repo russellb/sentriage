@@ -32,7 +32,7 @@ jobs:
 
       - name: Sync reports
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           ADVISORY_TOKEN: ${{ secrets.ADVISORY_TOKEN }}
         working-directory: instance
         run: python3 ../sentriage/scripts/sync-reports.py --config sentriage.yml
