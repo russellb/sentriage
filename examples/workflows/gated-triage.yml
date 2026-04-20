@@ -1,8 +1,11 @@
 # Gated triage workflow: triage only runs when a human applies
-# the needs-triage label. Use this with sync-reports.yml configured
+# the needs-triage label. Use with sync-reports.yml configured
 # to use --initial-label new-report.
 #
-# Uses the default GITHUB_TOKEN — no access to monitored repos needed.
+# Runs in a UBI9 container with Claude Code installed.
+# Uses the default GITHUB_TOKEN — no access to monitored repos.
+#
+# Required secrets: same as basic-triage.yml
 
 name: Sentriage Gated Triage
 
@@ -10,11 +13,37 @@ on:
   issues:
     types: [labeled]
 
+permissions:
+  issues: write
+  contents: read
+
 jobs:
   triage:
     if: github.event.action == 'labeled' && github.event.label.name == 'needs-triage'
     runs-on: ubuntu-latest
+    container:
+      image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+    timeout-minutes: 60
+    env:
+      # --- AI backend config (Vertex AI example) ---
+      CLAUDE_CODE_USE_VERTEX: "1"
+      ANTHROPIC_VERTEX_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      CLOUD_ML_REGION: "us-east5"
+      GOOGLE_APPLICATION_CREDENTIALS: "/tmp/gcp-key.json"
+      # --- For direct Anthropic API, replace the above with: ---
+      # ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # ---
+      DISABLE_AUTOUPDATER: "1"
+      CLAUDE_MODEL: "claude-opus-4-6"
+      GITHUB_TOKEN: ${{ github.token }}
+      SENTRIAGE_ROOT: ${{ github.workspace }}/sentriage
     steps:
+      - name: Install container prerequisites
+        run: |
+          microdnf install -y --nodocs tar gzip git-core findutils jq
+          curl -fsSL https://cli.github.com/packages/rpm/gh-cli.repo > /etc/yum.repos.d/gh-cli.repo
+          microdnf install -y --nodocs gh
+
       - uses: actions/checkout@v4
         with:
           repository: russellb/sentriage
@@ -24,35 +53,53 @@ jobs:
         with:
           path: instance
 
+      - name: Setup Claude CI
+        env:
+          GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+          WORKSPACE_DIR: ${{ github.workspace }}
+        run: |
+          bash sentriage/scripts/setup-claude-ci.sh
+          if [ -n "$GCP_CREDENTIALS" ]; then
+            echo "$GCP_CREDENTIALS" > /tmp/gcp-key.json
+            chmod 644 /tmp/gcp-key.json
+          fi
+          pip3 install pyyaml
+
+      - name: Fix workspace permissions
+        run: |
+          chmod -R a+rwX "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE/instance"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE/sentriage"
+
       - name: Check duplicates
         id: check-duplicates
-        uses: ./sentriage/actions/run-skill
-        with:
-          github-token: ${{ github.token }}
-          issue-number: ${{ github.event.issue.number }}
-          skill: check-duplicates
+        working-directory: instance
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          SKILL: check-duplicates
+        run: bash ../sentriage/actions/run-skill/run.sh
 
       - name: Check validity
         id: check-validity
         if: steps.check-duplicates.outputs.recommendation != 'duplicate'
-        uses: ./sentriage/actions/run-skill
-        with:
-          github-token: ${{ github.token }}
-          issue-number: ${{ github.event.issue.number }}
-          skill: check-validity
+        working-directory: instance
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          SKILL: check-validity
+        run: bash ../sentriage/actions/run-skill/run.sh
 
       - name: Assess severity
         if: >
           steps.check-duplicates.outputs.recommendation != 'duplicate' &&
           steps.check-validity.outputs.recommendation != 'invalid'
-        uses: ./sentriage/actions/run-skill
-        with:
-          github-token: ${{ github.token }}
-          issue-number: ${{ github.event.issue.number }}
-          skill: assess-severity
+        working-directory: instance
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          SKILL: assess-severity
+        run: bash ../sentriage/actions/run-skill/run.sh
 
       - name: Finalize triage
-        uses: ./sentriage/actions/finalize-triage
-        with:
-          github-token: ${{ github.token }}
-          issue-number: ${{ github.event.issue.number }}
+        working-directory: instance
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: bash ../sentriage/actions/finalize-triage/finalize.sh

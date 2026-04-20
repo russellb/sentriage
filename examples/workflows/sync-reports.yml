@@ -3,7 +3,7 @@
 #
 # Uses two tokens:
 #   GITHUB_TOKEN (default) — creates/updates issues and labels in this repo
-#   ADVISORY_TOKEN (secret) — PAT with security_events scope to read advisories
+#   ADVISORY_TOKEN (secret) — PAT with repo scope to read advisories
 # Does NOT run Claude.
 
 name: Sentriage Sync Reports
@@ -12,6 +12,10 @@ on:
   schedule:
     - cron: '0 */6 * * *'
   workflow_dispatch: {}
+
+permissions:
+  issues: write
+  contents: read
 
 jobs:
   sync:
