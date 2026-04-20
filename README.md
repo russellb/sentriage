@@ -46,7 +46,7 @@ with confidence scores, ready for human review.
 Sentriage uses two separate workflows with distinct security boundaries:
 
 ```mermaid
-graph LR
+graph TD
     A[Security Advisory<br>filed on monitored repo] -->|Sync workflow<br>privileged PAT| B[Issue created in<br>sentriage instance repo]
     B -->|Triage workflow<br>default GITHUB_TOKEN| C[AI skills analyze<br>the report]
     C --> D[Recommendations posted<br>as issue comments]
