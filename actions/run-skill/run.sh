@@ -93,7 +93,7 @@ print(json.dumps(repos))
 }
 
 assemble_prompt() {
-  local skill_file="$1" report_content="$2"
+  local skill_file="$1" report_file="$2"
   local base_instructions="${SENTRIAGE_ROOT}/base-instructions.md"
   local prompt=""
 
@@ -115,11 +115,10 @@ assemble_prompt() {
   prompt+="$(cat "$skill_file")"
   prompt+=$'\n\n'
 
-  # Layer 4: Report content (wrapped in untrusted-data delimiters)
-  prompt+="## Vulnerability Report to Analyze"$'\n\n'
-  prompt+="<vulnerability-report>"$'\n'
-  prompt+="$report_content"$'\n'
-  prompt+="</vulnerability-report>"
+  # Layer 4: Reference to report file (no user content in prompt)
+  prompt+="## Vulnerability Report"$'\n\n'
+  prompt+="The vulnerability report to analyze is in the file: $report_file"$'\n'
+  prompt+="Read this file to begin your analysis."
 
   echo "$prompt"
 }
@@ -159,19 +158,20 @@ main() {
 
   echo "=== Running skill: $skill_name on issue #$ISSUE_NUMBER ==="
 
-  # Fetch report content
+  # Fetch report content and write to file (never embedded in prompt)
   echo "--- Fetching report content ---"
-  local report_content
-  report_content=$(fetch_report_content "$ISSUE_NUMBER")
+  local report_file="$WORKSPACE_DIR/report.md"
+  mkdir -p "$WORKSPACE_DIR"
+  fetch_report_content "$ISSUE_NUMBER" > "$report_file"
 
   # Clone configured repos
   echo "--- Cloning configured repos ---"
   clone_configured_repos "$CONFIG_FILE" "$WORKSPACE_DIR"
 
-  # Assemble layered prompt
+  # Assemble layered prompt (references report file, does not include its content)
   echo "--- Assembling prompt ---"
   local prompt
-  prompt=$(assemble_prompt "$skill_file" "$report_content")
+  prompt=$(assemble_prompt "$skill_file" "$report_file")
 
   # Write prompt to a temp file (avoid shell argument length limits)
   local prompt_file

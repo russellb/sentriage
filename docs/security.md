@@ -10,9 +10,11 @@ security model and mitigations.
 
 **Threat:** Report content attempts to override agent instructions.
 
-**Mitigation:** Report content is wrapped in `<vulnerability-report>` tags.
-The base instructions explicitly tell the agent to treat content within
-these tags as untrusted user input, never as instructions.
+**Mitigation:** Report content is never included in the prompt. It is
+written to a file on disk, and the prompt tells Claude to read that file.
+This prevents user-controlled data from being interpreted as instructions.
+The base instructions also tell the agent to treat the file content as
+untrusted data.
 
 ### Information Leakage
 
