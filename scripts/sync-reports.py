@@ -52,9 +52,16 @@ def gh(*args, token=None, check=True):
         ["gh", *args],
         capture_output=True,
         text=True,
-        check=check,
+        check=False,
         env=env,
     )
+    if result.returncode != 0:
+        if check:
+            print(f"gh command failed: gh {' '.join(args)}", file=sys.stderr)
+            if result.stderr:
+                print(f"  stderr: {result.stderr.strip()}", file=sys.stderr)
+            result.check_returncode()
+        return ""
     return result.stdout.strip()
 
 
