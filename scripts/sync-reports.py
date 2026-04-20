@@ -9,7 +9,10 @@ Usage:
     sync-reports.py --config sentriage.yml [--initial-label needs-triage] [--dry-run]
 
 Required environment variables:
-    GITHUB_TOKEN — PAT with security_events and repo scope on monitored repos
+    GITHUB_TOKEN      — Token for the instance repo (issues, labels).
+                        The default GITHUB_TOKEN in Actions is sufficient.
+    ADVISORY_TOKEN    — PAT with security_events scope on monitored repos.
+                        Only used to read advisories, never for local repo ops.
 
 Optional environment variables:
     GITHUB_OUTPUT — GitHub Actions output file (for setting workflow outputs)
@@ -37,13 +40,20 @@ REQUIRED_LABELS = {
 }
 
 
-def gh(*args, check=True):
-    """Run a gh CLI command and return stdout."""
+def gh(*args, token=None, check=True):
+    """Run a gh CLI command and return stdout.
+
+    If token is provided, it overrides GITHUB_TOKEN for this call.
+    """
+    env = None
+    if token:
+        env = {**os.environ, "GITHUB_TOKEN": token}
     result = subprocess.run(
         ["gh", *args],
         capture_output=True,
         text=True,
         check=check,
+        env=env,
     )
     return result.stdout.strip()
 
@@ -93,12 +103,13 @@ def ensure_labels():
                "--description", f"Sentriage: {label}")
 
 
-def fetch_advisories(repo):
-    """Fetch security advisories from a repo."""
+def fetch_advisories(repo, advisory_token):
+    """Fetch security advisories from a repo using the advisory token."""
     try:
         out = gh("api", f"repos/{repo}/security-advisories",
                  "--header", "Accept: application/vnd.github+json",
-                 "--paginate")
+                 "--paginate",
+                 token=advisory_token)
         return json.loads(out) if out else []
     except subprocess.CalledProcessError:
         print(f"  Warning: could not fetch advisories from {repo}",
@@ -199,10 +210,10 @@ def advisory_changed(advisory, existing_body):
     )
 
 
-def sync_repo(repo, initial_label, existing_issues, dry_run=False):
+def sync_repo(repo, initial_label, existing_issues, advisory_token, dry_run=False):
     """Sync advisories from one repo. Returns list of new issue numbers."""
     print(f"Checking {repo} for security advisories...")
-    advisories = fetch_advisories(repo)
+    advisories = fetch_advisories(repo, advisory_token)
     new_issues = []
 
     for advisory in advisories:
@@ -282,6 +293,12 @@ def main():
               file=sys.stderr)
         sys.exit(1)
 
+    advisory_token = os.environ.get("ADVISORY_TOKEN")
+    if not advisory_token:
+        print("Error: ADVISORY_TOKEN environment variable is required",
+              file=sys.stderr)
+        sys.exit(1)
+
     config = load_config(args.config)
 
     if not args.dry_run:
@@ -297,7 +314,7 @@ def main():
     for repo_config in repos:
         repo = repo_config["repo"]
         new = sync_repo(repo, args.initial_label, existing_issues,
-                        dry_run=args.dry_run)
+                        advisory_token, dry_run=args.dry_run)
         all_new_issues.extend(new)
 
     issues_json = json.dumps(all_new_issues)

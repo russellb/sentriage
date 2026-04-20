@@ -1,8 +1,10 @@
 # Sync workflow: poll monitored repos for new/updated security advisories
 # and create/update tracking issues.
 #
-# This workflow uses a privileged PAT (SENTRIAGE_PAT) with security_events
-# scope to read advisories from monitored repos. It does NOT run Claude.
+# Uses two tokens:
+#   GITHUB_TOKEN (default) — creates/updates issues and labels in this repo
+#   ADVISORY_TOKEN (secret) — PAT with security_events scope to read advisories
+# Does NOT run Claude.
 
 name: Sentriage Sync Reports
 
@@ -30,6 +32,7 @@ jobs:
 
       - name: Sync reports
         env:
-          GITHUB_TOKEN: ${{ secrets.SENTRIAGE_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ADVISORY_TOKEN: ${{ secrets.ADVISORY_TOKEN }}
         working-directory: instance
         run: python3 ../sentriage/scripts/sync-reports.py --config sentriage.yml
