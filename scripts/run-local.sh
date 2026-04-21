@@ -21,6 +21,7 @@ export GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token)}"
 export ISSUE_NUMBER
 export WORKSPACE_DIR="${WORKSPACE_DIR:-/tmp/sentriage-workspace}"
 export GITHUB_OUTPUT="${GITHUB_OUTPUT:-/tmp/sentriage-github-output}"
+export SENTRIAGE_LOCAL=1
 
 rm -f "$GITHUB_OUTPUT"
 touch "$GITHUB_OUTPUT"
@@ -66,11 +67,8 @@ else
   run_skill "validate-and-assess"
 fi
 
-if [ "${DRY_RUN:-}" != "1" ]; then
-  echo ""
-  echo "--- Finalizing triage ---"
-  bash "$SENTRIAGE_ROOT/actions/finalize-triage/finalize.sh"
-fi
+echo ""
+echo "--- Skipping finalize (local mode) ---"
 
 echo ""
 echo "=== Triage complete for issue #$ISSUE_NUMBER ==="

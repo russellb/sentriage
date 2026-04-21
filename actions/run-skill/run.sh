@@ -193,7 +193,12 @@ ${analysis}
 ${draft_response}"
   fi
 
-  gh issue comment "$issue_number" --body "$comment"
+  if [ "${SENTRIAGE_LOCAL:-}" = "1" ]; then
+    echo ""
+    echo "$comment"
+  else
+    gh issue comment "$issue_number" --body "$comment"
+  fi
 }
 
 set_outputs() {
