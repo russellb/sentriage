@@ -2,18 +2,22 @@
 # Run a sentriage skill locally against an issue.
 #
 # Usage:
-#   run-local.sh <issue-number> [skill]
-#   run-local.sh 1                          # runs full pipeline
+#   run-local.sh [--post] <issue-number> [skill]
+#   run-local.sh 1                          # runs full pipeline, prints to terminal
 #   run-local.sh 1 check-duplicates         # runs one skill
-#   run-local.sh 1 validate-and-assess      # runs one skill
+#   run-local.sh --post 1 validate-and-assess  # posts results as GitHub comments
 #
 # Expects to be run from the instance repo directory (e.g., ~/src/vllm-sentriage).
 # SENTRIAGE_ROOT defaults to ../sentriage (sibling directory).
-#
-# Set DRY_RUN=1 to skip posting comments and label changes.
 set -euo pipefail
 
-ISSUE_NUMBER="${1:?Usage: $0 <issue-number> [skill]}"
+POST=false
+if [ "${1:-}" = "--post" ]; then
+  POST=true
+  shift
+fi
+
+ISSUE_NUMBER="${1:?Usage: $0 [--post] <issue-number> [skill]}"
 SKILL="${2:-}"
 
 export SENTRIAGE_ROOT="${SENTRIAGE_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
@@ -21,7 +25,10 @@ export GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token)}"
 export ISSUE_NUMBER
 export WORKSPACE_DIR="${WORKSPACE_DIR:-/tmp/sentriage-workspace-$$}"
 export GITHUB_OUTPUT="${GITHUB_OUTPUT:-${WORKSPACE_DIR}/_run/github-output}"
-export SENTRIAGE_LOCAL=1
+
+if [ "$POST" = false ]; then
+  export SENTRIAGE_DRY_RUN=1
+fi
 
 mkdir -p "$(dirname "$GITHUB_OUTPUT")"
 rm -f "$GITHUB_OUTPUT"

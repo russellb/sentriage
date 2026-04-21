@@ -193,7 +193,7 @@ ${analysis}
 ${draft_response}"
   fi
 
-  if [ "${SENTRIAGE_LOCAL:-}" = "1" ]; then
+  if [ "${SENTRIAGE_DRY_RUN:-}" = "1" ]; then
     echo ""
     echo "$comment"
   else
