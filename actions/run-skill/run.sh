@@ -256,6 +256,7 @@ main() {
   # Make workspace accessible to claude-ci user
   chmod -R a+rX "$WORKSPACE_DIR"
   touch "$RESULT_FILE" && chmod a+rw "$RESULT_FILE"
+  touch "$run_dir/draft-assessment.json" && chmod a+rw "$run_dir/draft-assessment.json"
 
   # Run Claude via run-claude.sh (handles user switching, OTEL, FIFO streaming)
   echo "--- Running Claude ---"
