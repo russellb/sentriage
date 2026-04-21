@@ -21,8 +21,7 @@ checkpoints at each stage.
 
 - **Syncs** new vulnerability reports from monitored repos into a private tracking repo
 - **Checks for duplicates** against existing reports
-- **Validates** whether reported vulnerabilities exist in the source code
-- **Assesses severity** independently using CVSS criteria
+- **Validates and assesses** whether reported vulnerabilities exist in the source code, using CVSS criteria for independent severity assessment
 - **Recommends** disposition with confidence scores
 - **Short-circuits** the pipeline when a report is identified as duplicate or invalid
 - **Never decides** — all final dispositions are made by humans
@@ -75,9 +74,7 @@ flowchart TD
     subgraph triage["Triage Workflow (event-driven)"]
         D1[check-duplicates]
         D2{Duplicate?}
-        D3[check-validity]
-        D4{Invalid?}
-        D5[assess-severity]
+        D3[validate-and-assess]
         D6[finalize-triage]
     end
 
@@ -100,10 +97,7 @@ flowchart TD
     D1 --> D2
     D2 -->|Yes| D6
     D2 -->|No| D3
-    D3 --> D4
-    D4 -->|Yes| D6
-    D4 -->|No| D5
-    D5 --> D6
+    D3 --> D6
     D6 -->|"Labels: triaged + needs-review"| E1
     E1 --> E2
     E2 --> E3
