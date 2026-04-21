@@ -79,23 +79,13 @@ jobs:
           SKILL: check-duplicates
         run: bash ../sentriage/actions/run-skill/run.sh
 
-      - name: Check validity
-        id: check-validity
+      - name: Validate and assess severity
+        id: validate-and-assess
         if: steps.check-duplicates.outputs.recommendation != 'duplicate'
         working-directory: instance
         env:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
-          SKILL: check-validity
-        run: bash ../sentriage/actions/run-skill/run.sh
-
-      - name: Assess severity
-        if: >
-          steps.check-duplicates.outputs.recommendation != 'duplicate' &&
-          steps.check-validity.outputs.recommendation != 'invalid'
-        working-directory: instance
-        env:
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          SKILL: assess-severity
+          SKILL: validate-and-assess
         run: bash ../sentriage/actions/run-skill/run.sh
 
       - name: Finalize triage

@@ -134,8 +134,7 @@ See the [Getting Started](docs/getting-started.md) guide.
 | Skill | Purpose |
 |---|---|
 | `check-duplicates` | Find duplicate or related reports |
-| `check-validity` | Validate vulnerability against source code |
-| `assess-severity` | Independent CVSS severity assessment |
+| `validate-and-assess` | Validate vulnerability against source code and assess severity |
 
 Each skill runs as an isolated Claude Code invocation in a fresh
 container — no context is shared between reports or between skills.
