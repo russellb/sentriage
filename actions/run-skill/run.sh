@@ -115,7 +115,7 @@ for repo in data.get('monitored_repos', []):
     ref=$(echo "$entry" | jq -r '.ref')
     clone_dir="$workspace/$(echo "$repo" | tr '/' '_')"
     src="$clone_dir/$ref"
-    dst="$context_dir/$(echo "$repo" | tr '/' '_')__$(basename "$ref")"
+    dst="$context_dir/$(echo "$repo" | tr '/' '_')__$(echo "$ref" | tr '/' '_')"
     if [ -f "$src" ]; then
       cp "$src" "$dst"
       echo "  Context: $repo/$ref -> $dst"
