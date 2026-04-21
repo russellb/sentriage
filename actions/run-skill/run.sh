@@ -239,7 +239,9 @@ main() {
   collect_context_refs "$CONFIG_FILE" "$WORKSPACE_DIR"
 
   # Set result file path — Claude writes its JSON result here
-  export RESULT_FILE="/tmp/sentriage-result.json"
+  local run_dir="$WORKSPACE_DIR/_run"
+  mkdir -p "$run_dir"
+  export RESULT_FILE="$run_dir/result.json"
   rm -f "$RESULT_FILE"
 
   # Assemble layered prompt (references report file, does not include its content)
@@ -248,7 +250,7 @@ main() {
   prompt=$(assemble_prompt "$skill_file" "$report_file")
 
   # Write prompt to a file for run-claude.sh
-  local prompt_file="/tmp/sentriage-prompt.md"
+  local prompt_file="$run_dir/prompt.md"
   echo "$prompt" > "$prompt_file"
 
   # Make workspace accessible to claude-ci user

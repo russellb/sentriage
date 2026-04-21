@@ -274,7 +274,7 @@ while True:
                 # Try OTEL collector rate first, fall back to local rate
                 rate = 0.0
                 try:
-                    with open("/tmp/claude-otel-rate.json") as rf:
+                    with open(os.environ.get("OTEL_RATE_FILE", "/tmp/claude-otel-rate.json")) as rf:
                         rd = json.load(rf)
                     rate = rd.get("rate", 0)
                 except Exception:

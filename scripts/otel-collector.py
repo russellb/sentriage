@@ -91,9 +91,16 @@ def _update_token_rate(payload):
 def main():
     port = int(os.environ.get("OTEL_COLLECTOR_PORT", "4318"))
     server = HTTPServer(("127.0.0.1", port), OTLPHandler)
+    actual_port = server.server_address[1]
+    # Write actual port to file so callers can discover it (useful when
+    # binding to port 0 for parallel-safe execution).
+    port_file = os.environ.get("OTEL_PORT_FILE")
+    if port_file:
+        with open(port_file, "w") as f:
+            f.write(str(actual_port))
     # Clean exit on SIGTERM
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
-    print(f"OTLP collector listening on 127.0.0.1:{port}, writing to {LOG_FILE}",
+    print(f"OTLP collector listening on 127.0.0.1:{actual_port}, writing to {LOG_FILE}",
           file=sys.stderr)
     try:
         server.serve_forever()

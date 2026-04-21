@@ -19,10 +19,11 @@ SKILL="${2:-}"
 export SENTRIAGE_ROOT="${SENTRIAGE_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 export GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token)}"
 export ISSUE_NUMBER
-export WORKSPACE_DIR="${WORKSPACE_DIR:-/tmp/sentriage-workspace}"
-export GITHUB_OUTPUT="${GITHUB_OUTPUT:-/tmp/sentriage-github-output}"
+export WORKSPACE_DIR="${WORKSPACE_DIR:-/tmp/sentriage-workspace-$$}"
+export GITHUB_OUTPUT="${GITHUB_OUTPUT:-${WORKSPACE_DIR}/_run/github-output}"
 export SENTRIAGE_LOCAL=1
 
+mkdir -p "$(dirname "$GITHUB_OUTPUT")"
 rm -f "$GITHUB_OUTPUT"
 touch "$GITHUB_OUTPUT"
 
