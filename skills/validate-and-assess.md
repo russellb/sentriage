@@ -112,6 +112,80 @@ Begin the response with:
 **If needs-more-info:**
 - State what's missing in specific, actionable terms
 
+### Part 5: Adversarial Review
+
+Before writing your final result, submit your assessment to an
+adversarial reviewer agent. This multi-agent review process ensures
+rigor and catches errors in your analysis.
+
+**Do NOT write to the final result file yet.**
+
+#### Step 1: Save Draft
+
+Write your complete assessment JSON (the same format described in
+the Output Format section) to a file named `draft-assessment.json`
+in the same directory as the final result file.
+
+#### Step 2: Load Reviewer Instructions
+
+Read the adversarial review instructions from the companion skill
+file. Find it by checking the SENTRIAGE_ROOT environment variable:
+
+```bash
+echo "${SENTRIAGE_ROOT}/skills/adversarial-review.md"
+```
+
+Read that file to get the full reviewer instructions. If the file
+cannot be found, skip the adversarial review and write your
+assessment directly to the final result file.
+
+#### Step 3: Spawn Adversarial Reviewer
+
+Use the Agent tool to spawn an adversarial reviewer. In the Agent
+prompt, include:
+
+1. The full content of the adversarial review instructions you read
+2. The path to your draft assessment file (so the reviewer can
+   read it)
+3. The path to the vulnerability report file (so the reviewer can
+   independently verify claims against the report)
+4. The workspace directory path where source code repositories are
+   cloned, so the reviewer can independently examine the code
+5. The paths to any project context files (security policies, etc.)
+6. Ask the reviewer to respond with its JSON verdict
+
+The reviewer will independently examine the source code and
+vulnerability report to verify your claims. Do not summarize the
+code for the reviewer -- let it read the code itself.
+
+#### Step 4: Process Feedback
+
+Read the reviewer's response. If the verdict is "challenge" with
+any critical or significant issues:
+
+1. Consider each challenge on its merits -- accept valid critiques
+   and revise your assessment, but push back on challenges where
+   your original analysis is well-supported (strengthen the
+   rationale rather than capitulating)
+2. Update the draft assessment file with your revisions
+3. Spawn the reviewer again with the updated draft
+
+If the verdict is "accept," or the only issues are minor, proceed
+to Step 5.
+
+Repeat this review cycle for up to 3 rounds. After 3 rounds,
+proceed to Step 5 regardless of the reviewer's verdict.
+
+#### Step 5: Write Final Result
+
+Write the final assessment JSON to the result file path specified
+in the Output section. This should reflect the post-review
+assessment, incorporating valid feedback from the adversarial
+reviewer.
+
+Only the final assessment is posted as a comment. The adversarial
+review deliberation is captured in the execution logs.
+
 ## Analysis Approach
 
 - Start by identifying the specific files, functions, or endpoints
