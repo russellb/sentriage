@@ -37,20 +37,30 @@ behavior constitutes a vulnerability in this project.
    security advisories. Does the project treat this as a security
    property it maintains? Or is responsibility delegated to deployers,
    client applications, or other layers of the stack?
-3. **Question the reporter's framing, not just their facts.** Ask:
+3. **Cross-reference against documented risks.** Check whether the
+   reported behavior is already described in the project's security
+   documentation. If the project's docs already identify the endpoint,
+   feature, or behavior as a known risk with a recommended mitigation,
+   note this prominently in your analysis. A report that elaborates on
+   a documented risk is fundamentally different from a report that
+   reveals an unknown one — the former is a hardening suggestion at
+   best, while the latter may be a genuine vulnerability. Your
+   analysis must explicitly state whether the reported behavior is
+   already documented and what the project recommends as mitigation.
+4. **Question the reporter's framing, not just their facts.** Ask:
    - Could this be working-as-intended behavior?
    - Is the reporter attributing responsibility to this project for a
      security boundary the project doesn't claim to maintain?
    - Are the claimed "impacts" actually consequences in downstream
      software, not impacts on this project itself?
-4. **Scrutinize "inconsistent threat model" arguments.** When a
+5. **Scrutinize "inconsistent threat model" arguments.** When a
    reporter argues "you defend against X, so you should also defend
    against Y," verify that X and Y are actually the same threat class
    with the same rationale for mitigation. Similar surface-level
    outcomes (e.g., "role-boundary forgery") can have completely
    different underlying reasons for defense (e.g., server-side Jinja
    execution safety vs. prompt injection resistance).
-5. **Distinguish hardening improvements from vulnerabilities.** A
+6. **Distinguish hardening improvements from vulnerabilities.** A
    change that would make software more robust is not the same as a
    security vulnerability. If the behavior is better described as a
    feature request or defense-in-depth improvement, say so — set
