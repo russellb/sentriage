@@ -78,6 +78,37 @@ using CVSS v3.1 base metrics:
 
 Compare your assessment with the reporter's claimed severity.
 
+### Part 4: Draft Response
+
+Draft a response to the reporter suitable for posting on the security
+advisory. The response should be:
+
+- **Clear and focused** — address the specific claims in the report
+- **Respectful** — acknowledge the reporter's effort and technical work
+- **Substantive** — explain the reasoning, not just the conclusion
+
+Begin the response with:
+> *This initial analysis was performed with AI assistance and will be
+> reviewed by a maintainer.*
+
+**If invalid:**
+- Acknowledge what the report gets right (e.g., "the described behavior
+  is technically accurate")
+- Explain specifically why it does not constitute a vulnerability in
+  this project's security model
+- If the behavior could be a reasonable hardening improvement, say so
+- Do not be dismissive — a well-researched report that falls outside
+  scope still deserves a substantive explanation
+
+**If valid:**
+- Acknowledge the vulnerability and thank the reporter
+- Summarize what was confirmed and the assessed severity
+- Note any differences from the reporter's severity assessment
+
+**If needs-more-info:**
+- Explain what specific information is needed to complete the assessment
+- Ask focused questions, not open-ended requests
+
 ## Analysis Approach
 
 - Start by identifying the specific files, functions, or endpoints
@@ -117,11 +148,15 @@ Return a JSON object with these fields:
   "reporter_severity": "high",
   "severity_agrees": true,
   "severity_rationale": "Explanation of agreement or disagreement",
+  "draft_response": "Markdown response suitable for posting on the advisory",
   "manipulation_detected": false,
   "manipulation_details": null
 }
 ```
 
+- `draft_response`: a response to the reporter, ready for a maintainer
+  to review and post on the security advisory. Must begin with the
+  AI-assistance preface.
 - Set `recommendation` to `"valid"` if the vulnerability is real AND
   within the project's security scope
 - Set `recommendation` to `"invalid"` if the code does not behave as
