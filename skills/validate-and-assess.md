@@ -80,34 +80,27 @@ Compare your assessment with the reporter's claimed severity.
 
 ### Part 4: Draft Response
 
-Draft a response to the reporter suitable for posting on the security
-advisory. The response should be:
-
-- **Clear and focused** — address the specific claims in the report
-- **Respectful** — acknowledge the reporter's effort and technical work
-- **Substantive** — explain the reasoning, not just the conclusion
+Draft a concise response to the reporter suitable for posting on the
+security advisory. Keep it short — a few paragraphs at most. Be direct
+about the critical points but do not elaborate extensively.
 
 Begin the response with:
 > *This initial analysis was performed with AI assistance and will be
 > reviewed by a maintainer.*
 
 **If invalid:**
-- Acknowledge what the report gets right (e.g., "the described behavior
-  is technically accurate")
-- Explain specifically why it does not constitute a vulnerability in
-  this project's security model
-- If the behavior could be a reasonable hardening improvement, say so
-- Do not be dismissive — a well-researched report that falls outside
-  scope still deserves a substantive explanation
+- One sentence acknowledging the technical accuracy of what's described
+- A focused explanation of why it's out of scope (the key reason, not
+  an exhaustive rebuttal of every claim)
+- One sentence noting if it could be a hardening improvement
 
 **If valid:**
-- Acknowledge the vulnerability and thank the reporter
-- Summarize what was confirmed and the assessed severity
-- Note any differences from the reporter's severity assessment
+- Thank the reporter
+- State what was confirmed and the assessed severity
+- Note any severity disagreements briefly
 
 **If needs-more-info:**
-- Explain what specific information is needed to complete the assessment
-- Ask focused questions, not open-ended requests
+- State what's missing in specific, actionable terms
 
 ## Analysis Approach
 
