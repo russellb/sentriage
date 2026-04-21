@@ -175,7 +175,7 @@ assemble_prompt() {
 
 post_comment() {
   local issue_number="$1" analysis="$2" skill_name="$3"
-  local confidence="$4" recommendation="$5"
+  local confidence="$4" recommendation="$5" draft_response="${6:-}"
 
   local comment="## Sentriage: ${skill_name}
 
@@ -183,6 +183,15 @@ ${analysis}
 
 ---
 **Recommendation:** ${recommendation} | **Confidence:** ${confidence}"
+
+  if [ -n "$draft_response" ]; then
+    comment+="
+
+---
+### Draft Response
+
+${draft_response}"
+  fi
 
   gh issue comment "$issue_number" --body "$comment"
 }
@@ -264,14 +273,15 @@ main() {
     exit 1
   fi
 
-  local recommendation confidence analysis
+  local recommendation confidence analysis draft_response
   recommendation=$(jq -r '.recommendation // "unknown"' "$RESULT_FILE")
   confidence=$(jq -r '.confidence // 0.0' "$RESULT_FILE")
   analysis=$(jq -r '.analysis // "No analysis available"' "$RESULT_FILE")
+  draft_response=$(jq -r '.draft_response // empty' "$RESULT_FILE")
 
   # Post comment with results
   echo "--- Posting comment ---"
-  post_comment "$ISSUE_NUMBER" "$analysis" "$skill_name" "$confidence" "$recommendation"
+  post_comment "$ISSUE_NUMBER" "$analysis" "$skill_name" "$confidence" "$recommendation" "$draft_response"
 
   # Set action outputs for workflow branching
   set_outputs "$RESULT_FILE"
