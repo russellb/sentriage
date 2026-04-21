@@ -95,6 +95,7 @@ print(json.dumps(repos))
 collect_context_refs() {
   local config_file="$1" workspace="$2"
   local context_dir="$workspace/context"
+  rm -rf "$context_dir"
   mkdir -p "$context_dir"
 
   if [ ! -f "$config_file" ]; then
