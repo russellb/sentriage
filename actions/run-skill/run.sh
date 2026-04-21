@@ -84,10 +84,12 @@ print(json.dumps(repos))
     repo_name=$(echo "$repo_config" | jq -r '.repo')
     local clone_dir="$workspace/$(echo "$repo_name" | tr '/' '_')"
 
-    if [ ! -d "$clone_dir" ]; then
-      echo "Cloning $repo_name (read-only)..."
-      git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@github.com/${repo_name}.git" "$clone_dir" 2>/dev/null
-      chmod -R a-w "$clone_dir"
+    if [ -d "$clone_dir" ]; then
+      echo "Updating $repo_name..."
+      git -C "$clone_dir" pull --ff-only 2>/dev/null || true
+    else
+      echo "Cloning $repo_name..."
+      git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${repo_name}.git" "$clone_dir" 2>/dev/null
     fi
   done
 }
