@@ -161,7 +161,7 @@ def format_issue_title(repo, summary, ghsa_id):
 def format_issue_body(advisory, repo):
     ghsa_id = advisory["ghsa_id"]
     description = advisory.get("description", "No description provided.")
-    severity = advisory.get("severity", "unknown")
+    severity = advisory.get("severity") or "unknown"
     cve_id = advisory.get("cve_id") or "N/A"
     published_at = advisory.get("published_at", "unknown")
     html_url = advisory.get("html_url", "")
@@ -200,7 +200,7 @@ def format_issue_body(advisory, repo):
 def format_update_comment(advisory):
     updated_at = advisory.get("updated_at", "unknown")
     description = advisory.get("description", "No description provided.")
-    severity = advisory.get("severity", "unknown")
+    severity = advisory.get("severity") or "unknown"
 
     return f"""## Advisory Updated
 
@@ -217,7 +217,7 @@ This advisory was updated upstream at {updated_at}.
 
 def advisory_changed(advisory, existing_body):
     """Check if the advisory content differs from the existing issue body."""
-    new_severity = advisory.get("severity", "unknown")
+    new_severity = advisory.get("severity") or "unknown"
     new_description = advisory.get("description", "")
 
     return (
