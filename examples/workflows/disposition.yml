@@ -1,0 +1,30 @@
+# Auto-cleanup labels when a human applies a final disposition.
+#
+# When accepted, rejected-duplicate, rejected-invalid, or
+# rejected-out-of-scope is applied, removes the needs-review label.
+#
+# No secrets required — uses the default GITHUB_TOKEN.
+
+name: Disposition Applied
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  issues: write
+
+jobs:
+  cleanup-labels:
+    if: >-
+      github.event.label.name == 'accepted' ||
+      github.event.label.name == 'rejected-duplicate' ||
+      github.event.label.name == 'rejected-invalid' ||
+      github.event.label.name == 'rejected-out-of-scope'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove needs-review label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "needs-review"
