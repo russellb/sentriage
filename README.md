@@ -119,6 +119,21 @@ The privileged token never reaches the AI runtime. Report content is
 written to a file on disk — it is never embedded in the AI prompt,
 eliminating the primary prompt injection vector.
 
+## Demo
+
+See sentriage in action with these public demo repositories:
+
+- [russellb/vulnerable-demo-project](https://github.com/russellb/vulnerable-demo-project) — a small Flask app with intentional vulnerabilities
+- [russellb/sentriage-demo](https://github.com/russellb/sentriage-demo) — a sentriage instance monitoring the demo project
+
+Three security reports were filed and triaged automatically:
+
+| Issue | Scenario | Result |
+|---|---|---|
+| [#3](https://github.com/russellb/sentriage-demo/issues/3) | Valid SQL injection | Confirmed valid, assessed as high severity |
+| [#1](https://github.com/russellb/sentriage-demo/issues/1) | Invalid path traversal claim | Correctly rejected — code already sanitizes with `os.path.basename()` |
+| [#4](https://github.com/russellb/sentriage-demo/issues/4) | Duplicate of #3 | Caught as duplicate, skipped further analysis |
+
 ## Quick Start
 
 See the [Getting Started](docs/getting-started.md) guide.
