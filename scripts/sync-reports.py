@@ -241,9 +241,12 @@ def sync_repo(repo, initial_label, existing_issues, advisory_token, dry_run=Fals
         existing = existing_issues.get(ghsa_id)
 
         if existing is None:
-            print(f"  New: {ghsa_id} — {summary}")
+            # Draft advisories have already been triaged upstream
+            state = advisory.get("state", "triage")
+            label = "accepted" if state == "draft" else initial_label
+            print(f"  New ({state}): {ghsa_id} — {summary}")
             if dry_run:
-                print(f"    [dry-run] Would create issue with label '{initial_label}'")
+                print(f"    [dry-run] Would create issue with label '{label}'")
                 continue
 
             title = format_issue_title(repo, summary, ghsa_id)
@@ -251,7 +254,7 @@ def sync_repo(repo, initial_label, existing_issues, advisory_token, dry_run=Fals
             issue_url = gh("issue", "create",
                            "--title", title,
                            "--body", body,
-                           "--label", initial_label)
+                           "--label", label)
             match = re.search(r"/(\d+)$", issue_url)
             if match:
                 issue_num = int(match.group(1))
