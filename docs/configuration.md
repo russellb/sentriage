@@ -13,7 +13,8 @@ monitored_repos:
     clone: true
     context_refs:
       - SECURITY.md
-      - docs/security-policy.md
+      - path: docs/security-policy.md
+        skills: [validate-and-assess]
 ```
 
 ### Fields
@@ -27,6 +28,18 @@ A list of repositories to monitor for security advisories.
 | `repo` | string | yes | — | Repository in `owner/name` format |
 | `clone` | boolean | no | `false` | Whether to clone this repo for source code analysis |
 | `context_refs` | list | no | `[]` | Files in the repo to include as additional context |
+
+#### `context_refs` entries
+
+Each entry can be a simple string (file path) or a dict with options:
+
+| Form | Example | Description |
+|---|---|---|
+| string | `SECURITY.md` | Included for all skills |
+| dict | `{path: SECURITY.md, skills: [validate-and-assess]}` | Only included for the listed skills |
+
+Scoping context refs to specific skills reduces prompt size and token
+costs for skills that don't need them.
 
 ### Notes
 

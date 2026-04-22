@@ -4,9 +4,12 @@ monitored_repos:
     clone: true
     context_refs:
       - SECURITY.md
+      - path: docs/usage/security.md
+        skills: [validate-and-assess]
   - repo: llm-d/llm-d
     clone: true
     context_refs:
-      - docs/security-policy.md
+      - path: docs/security-policy.md
+        skills: [validate-and-assess]
   - repo: example/no-clone
     clone: false

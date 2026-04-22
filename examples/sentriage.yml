@@ -5,4 +5,8 @@ monitored_repos:
   - repo: your-org/your-repo
     clone: true
     context_refs:
+      # Simple form: included for all skills
       - SECURITY.md
+      # Scoped form: only included for specific skills
+      - path: docs/security-policy.md
+        skills: [validate-and-assess]

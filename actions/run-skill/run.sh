@@ -95,7 +95,7 @@ print(json.dumps(repos))
 }
 
 collect_context_refs() {
-  local config_file="$1" workspace="$2"
+  local config_file="$1" workspace="$2" skill_name="$3"
   local context_dir="$workspace/context"
   rm -rf "$context_dir"
   mkdir -p "$context_dir"
@@ -106,12 +106,24 @@ collect_context_refs() {
 
   python3 -c "
 import yaml, json, sys
+
+skill = sys.argv[2]
 with open(sys.argv[1]) as f:
     data = yaml.safe_load(f)
 for repo in data.get('monitored_repos', []):
     for ref in repo.get('context_refs', []):
-        print(json.dumps({'repo': repo['repo'], 'ref': ref}))
-" "$config_file" | while IFS= read -r entry; do
+        # Support both string and dict forms
+        if isinstance(ref, str):
+            path = ref
+            skills = None
+        else:
+            path = ref.get('path', '')
+            skills = ref.get('skills')
+        # Skip refs scoped to other skills
+        if skills is not None and skill not in skills:
+            continue
+        print(json.dumps({'repo': repo['repo'], 'ref': path}))
+" "$config_file" "$skill_name" | while IFS= read -r entry; do
     local repo ref clone_dir src dst
     repo=$(echo "$entry" | jq -r '.repo')
     ref=$(echo "$entry" | jq -r '.ref')
@@ -243,7 +255,7 @@ main() {
 
   # Collect context reference files
   echo "--- Collecting context references ---"
-  collect_context_refs "$CONFIG_FILE" "$WORKSPACE_DIR"
+  collect_context_refs "$CONFIG_FILE" "$WORKSPACE_DIR" "$skill_name"
 
   # Run skill preparation script if one exists
   local prepare_script="${SENTRIAGE_ROOT}/scripts/prepare-${skill_name}.py"
