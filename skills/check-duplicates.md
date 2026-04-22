@@ -3,30 +3,46 @@
 You are checking whether this vulnerability report is a duplicate of an
 existing report.
 
-## Your Task
+## Pre-gathered Data
 
-1. Read the vulnerability report provided below
-2. Search for existing issues in this repository that describe the same
-   or substantially similar vulnerability
-3. Consider both open and closed issues
-4. Look for matches based on:
-   - Same affected component/file/function
-   - Same vulnerability type (e.g., SQL injection, XSS, path traversal)
-   - Same attack vector
-   - Overlapping affected versions
+A preparation script has already gathered data to assist you. Read the
+files from the prepared context directory (referenced in the Prepared
+Context section of your instructions) in this order:
 
-## Search Strategy
+### Step 1: Check for Exact Matches
 
-Use the `gh` CLI to search for existing issues:
+Read `exact-matches.json`. If it contains any entries, those are
+definitive duplicates — the same GHSA or CVE ID already appears in an
+existing issue. Set your recommendation to "duplicate" with high
+confidence and you are done.
 
-```bash
-gh issue list --state all --json number,title,body,labels --limit 100
-```
+### Step 2: Review the Report Metadata
 
-Filter results looking for:
-- Similar vulnerability types in the title or body
-- Same affected files or components mentioned
-- Same GHSA or CVE IDs referenced
+Read `report-metadata.json` to understand the key characteristics of
+the current report: GHSA/CVE IDs, affected files, vulnerability type
+keywords, and severity.
+
+### Step 3: Scan the Compact Index
+
+Read `index.json`, which contains one entry per existing issue with:
+- Issue number, title, GHSA/CVE IDs
+- Affected files and vulnerability keywords
+- A short description summary
+- Current labels and state
+
+Scan this index for potential duplicates by looking for overlap in:
+- Same affected component or file paths
+- Same vulnerability type (e.g., both are path traversal)
+- Same source repository and similar description
+
+### Step 4: Deep-read Candidates Only
+
+If you identified candidate matches from the index, read their full
+issue bodies from `issues/<number>.md` to confirm whether they
+describe the same vulnerability. Only read the specific candidates —
+do not read all issue files.
+
+If no candidates looked similar in the index, skip this step.
 
 ## Output Format
 

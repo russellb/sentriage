@@ -161,12 +161,19 @@ assemble_prompt() {
     prompt+="Read these files for context about the project's security policies and guidelines."$'\n\n'
   fi
 
-  # Layer 5: Reference to report file (no user content in prompt)
+  # Layer 5: Prepared context (from skill preparation script)
+  local prepare_dir="$WORKSPACE_DIR/_prepare"
+  if [ -d "$prepare_dir" ] && [ "$(ls -A "$prepare_dir" 2>/dev/null)" ]; then
+    prompt+="## Prepared Context"$'\n\n'
+    prompt+="Pre-gathered data for this skill is available in: $prepare_dir"$'\n\n'
+  fi
+
+  # Layer 6: Reference to report file (no user content in prompt)
   prompt+="## Vulnerability Report"$'\n\n'
   prompt+="The vulnerability report to analyze is in the file: $report_file"$'\n'
   prompt+="Read this file to begin your analysis."$'\n\n'
 
-  # Layer 6: Output file path
+  # Layer 7: Output file path
   prompt+="## Output"$'\n\n'
   prompt+="Write your JSON result to: ${RESULT_FILE}"
 
@@ -237,6 +244,14 @@ main() {
   # Collect context reference files
   echo "--- Collecting context references ---"
   collect_context_refs "$CONFIG_FILE" "$WORKSPACE_DIR"
+
+  # Run skill preparation script if one exists
+  local prepare_script="${SENTRIAGE_ROOT}/scripts/prepare-${skill_name}.py"
+  if [ -f "$prepare_script" ]; then
+    local prepare_dir="$WORKSPACE_DIR/_prepare"
+    echo "--- Running preparation script: prepare-${skill_name}.py ---"
+    python3 "$prepare_script" --report "$report_file" --output-dir "$prepare_dir"
+  fi
 
   # Set result file path — Claude writes its JSON result here
   local run_dir="$WORKSPACE_DIR/_run"
