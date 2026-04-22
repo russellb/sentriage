@@ -10,16 +10,34 @@ assessment.
 
 1. Read the vulnerability report
 2. Examine the source code in your workspace to validate the claims
-3. Check whether:
-   - The affected code path exists
+3. For EVERY factual claim the reporter makes, independently verify
+   it by reading the actual code. Do not accept code snippets or
+   descriptions in the report at face value. Specifically check:
+   - The affected code path exists and behaves as described
    - The described vulnerability type matches the actual code behavior
-   - The attack vector is feasible (inputs reach the vulnerable code)
-   - The claimed impact is realistic
+   - The attack vector is feasible (trace the data flow from user
+     input to the allegedly vulnerable code)
+   - The claimed impact is realistic given the actual code behavior
+   - Default configuration values are what the reporter claims
 4. Do NOT execute, build, or test the code — only read and analyze it
 5. Look for existing mitigations (input validation, sanitization,
-   access controls) that the reporter may not have accounted for
+   access controls) that the reporter may not have accounted for.
+   Verify that each mitigation actually covers the described attack
+   vector — a mitigation that exists but doesn't block the specific
+   path is not a mitigation.
 6. Consider the deployment context described in the project's security
    policy (if available in the project context files)
+7. Actively try to disprove the reported vulnerability:
+   - Check commit messages and PR discussions on the affected code
+     for evidence that the behavior is intentional
+   - Does the project protect against this class of issue elsewhere?
+     Inconsistency suggests oversight; consistency suggests intent.
+   - Could the "impact" only occur in downstream software, not in
+     this project itself?
+
+**Cite your evidence.** In your analysis, reference specific file
+paths and describe what you found — not just your conclusions. The
+adversarial reviewer will independently verify your claims.
 
 ### Part 2: Assess Scope
 
@@ -53,6 +71,12 @@ behavior constitutes a vulnerability in this project.
      security boundary the project doesn't claim to maintain?
    - Are the claimed "impacts" actually consequences in downstream
      software, not impacts on this project itself?
+   - Is the reporter using loaded language ("failed to", "neglected
+     to") that implies negligence without evidence? Do not adopt this
+     framing in your own analysis — describe behavior neutrally.
+   - Is the reporter stacking theoretical impacts ("RCE AND data
+     exfiltration AND privilege escalation") — are all of them
+     actually demonstrated, or is severity inflated by speculation?
 5. **Scrutinize "inconsistent threat model" arguments.** When a
    reporter argues "you defend against X, so you should also defend
    against Y," verify that X and Y are actually the same threat class
@@ -86,7 +110,19 @@ using CVSS v3.1 base metrics:
 - Integrity Impact (None/Low/High)
 - Availability Impact (None/Low/High)
 
+For each metric, briefly justify your choice based on the evidence
+from Part 1. Watch for common calibration errors:
+- Over-rating configuration issues: "vulnerable option available"
+  is not the same as "vulnerable by default"
+- Under-rating because prerequisites exist: non-default config that
+  is commonly used in production is still concerning
+- Conflating theoretical and practical: "theoretically possible" is
+  not "practically exploitable"
+- Impact inflation from the reporter: verify each claimed impact
+  independently rather than accepting the reporter's chain
+
 Compare your assessment with the reporter's claimed severity.
+If they disagree, explain specifically which metrics differ and why.
 
 ### Part 4: Draft Response
 
@@ -160,20 +196,22 @@ code for the reviewer -- let it read the code itself.
 
 #### Step 4: Process Feedback
 
-Read the reviewer's response. If the verdict is "challenge" with
-any critical or significant issues:
+Read the reviewer's response and check the evidence verification
+table for any claims it could not verify.
 
-1. Consider each challenge on its merits -- accept valid critiques
-   and revise your assessment, but push back on challenges where
-   your original analysis is well-supported (strengthen the
-   rationale rather than capitulating)
-2. Update the draft assessment file with your revisions
-3. Spawn the reviewer again with the updated draft
+- **"challenge"** verdict: Address each material challenge --
+  accept valid critiques and revise your assessment, but push back
+  where your original analysis is well-supported (strengthen the
+  rationale rather than capitulating). Update the draft and spawn
+  the reviewer again.
+- **"conditional-accept"** verdict: Address the specific gaps
+  listed. These are typically evidentiary (e.g., "verify the
+  default config value") rather than directional. Fill the gaps,
+  update the draft, and proceed to Step 5 without re-review.
+- **"accept"** verdict: Incorporate any minor feedback and proceed
+  to Step 5.
 
-If the verdict is "accept," or the only issues are minor, proceed
-to Step 5.
-
-Repeat this review cycle for up to 3 rounds. After 3 rounds,
+Repeat the review cycle for up to 3 rounds. After 3 rounds,
 proceed to Step 5 regardless of the reviewer's verdict.
 
 #### Step 5: Write Final Result
