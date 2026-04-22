@@ -20,7 +20,10 @@ confidence and you are done.
 
 Read `report-metadata.json` to understand the key characteristics of
 the current report: GHSA/CVE IDs, affected files, vulnerability type
-keywords, and severity.
+keywords, and severity. This contains all the structured data you
+need for duplicate matching — do not read the full vulnerability
+report unless you need additional context to resolve an ambiguous
+candidate match in Step 4.
 
 ### Step 3: Scan the Compact Index
 
