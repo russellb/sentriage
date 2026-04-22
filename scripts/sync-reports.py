@@ -130,6 +130,7 @@ def fetch_advisories(repo, advisory_token):
         except subprocess.CalledProcessError:
             print(f"  Warning: could not fetch {state} advisories from {repo}",
                   file=sys.stderr)
+    advisories.sort(key=lambda a: a.get("created_at", ""))
     return advisories
 
 
