@@ -59,7 +59,9 @@ def setup(workspace=None, user="claude-ci",
     _run("useradd", "-m", user)
 
     with tempfile.NamedTemporaryFile(suffix=".sh", delete=False) as f:
-        urllib.request.urlretrieve(install_url, f.name)
+        req = urllib.request.Request(install_url, headers={"User-Agent": "agentic-ci"})
+        with urllib.request.urlopen(req) as resp:
+            f.write(resp.read())
         os.chmod(f.name, 0o755)
     try:
         _run("runuser", "-l", user, "-c", f"bash {f.name}")
