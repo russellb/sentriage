@@ -1,12 +1,12 @@
-#!/usr/bin/env python3
 """Lightweight OTLP HTTP/JSON receiver that writes payloads to a log file.
 
-Listens on localhost:4318 and accepts OTLP HTTP/JSON exports for metrics
+Listens on localhost and accepts OTLP HTTP/JSON exports for metrics
 and logs, writing them to a structured log file for later analysis.
 
 Also tracks token usage over time and writes a rate file for live
 tokens/sec display.
 """
+
 import json
 import os
 import signal
@@ -15,11 +15,7 @@ import time
 from datetime import datetime, timezone
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-LOG_FILE = os.environ.get("OTEL_LOG_FILE", "/tmp/claude-otel.jsonl")
-RATE_FILE = os.environ.get("OTEL_RATE_FILE", "/tmp/claude-otel-rate.json")
-
-# Rolling window for tokens/sec calculation
-_token_samples = []  # [(timestamp, total_tokens)]
+_token_samples = []
 _WINDOW_SECS = 60
 
 
@@ -37,10 +33,10 @@ class OTLPHandler(BaseHTTPRequestHandler):
             "path": self.path,
             "payload": payload,
         }
-        with open(LOG_FILE, "a") as f:
+        log_file = os.environ.get("OTEL_LOG_FILE", "/tmp/claude-otel.jsonl")
+        with open(log_file, "a") as f:
             f.write(json.dumps(record) + "\n")
 
-        # Track token usage for rate calculation
         if "/v1/metrics" in self.path:
             _update_token_rate(payload)
 
@@ -50,11 +46,10 @@ class OTLPHandler(BaseHTTPRequestHandler):
         self.wfile.write(b'{"partialSuccess":{}}')
 
     def log_message(self, format, *args):
-        pass  # suppress request logging
+        pass
 
 
 def _update_token_rate(payload):
-    """Extract token totals from metrics payload and update rate file."""
     global _token_samples
     now = time.monotonic()
     total = 0
@@ -69,11 +64,9 @@ def _update_token_rate(payload):
         return
 
     _token_samples.append((now, total))
-    # Trim window
     cutoff = now - _WINDOW_SECS
     _token_samples = [(t, v) for t, v in _token_samples if t >= cutoff]
 
-    # Compute rate from window
     rate = 0.0
     if len(_token_samples) >= 2:
         dt = _token_samples[-1][0] - _token_samples[0][0]
@@ -81,26 +74,24 @@ def _update_token_rate(payload):
         if dt > 0:
             rate = dv / dt
 
-    # Atomic write
-    tmp = RATE_FILE + ".tmp"
+    rate_file = os.environ.get("OTEL_RATE_FILE", "/tmp/claude-otel-rate.json")
+    tmp = rate_file + ".tmp"
     with open(tmp, "w") as f:
         json.dump({"total": total, "rate": rate, "ts": time.time()}, f)
-    os.replace(tmp, RATE_FILE)
+    os.replace(tmp, rate_file)
 
 
-def main():
+def main(args=None):
     port = int(os.environ.get("OTEL_COLLECTOR_PORT", "4318"))
     server = HTTPServer(("127.0.0.1", port), OTLPHandler)
     actual_port = server.server_address[1]
-    # Write actual port to file so callers can discover it (useful when
-    # binding to port 0 for parallel-safe execution).
     port_file = os.environ.get("OTEL_PORT_FILE")
     if port_file:
         with open(port_file, "w") as f:
             f.write(str(actual_port))
-    # Clean exit on SIGTERM
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
-    print(f"OTLP collector listening on 127.0.0.1:{actual_port}, writing to {LOG_FILE}",
+    log_file = os.environ.get("OTEL_LOG_FILE", "/tmp/claude-otel.jsonl")
+    print(f"OTLP collector listening on 127.0.0.1:{actual_port}, writing to {log_file}",
           file=sys.stderr)
     try:
         server.serve_forever()

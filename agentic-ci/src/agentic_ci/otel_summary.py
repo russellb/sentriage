@@ -1,17 +1,11 @@
-#!/usr/bin/env python3
 """Parse OTLP JSONL log and print a human-readable token/cost summary."""
+
 import json
 import sys
 from collections import defaultdict
 
 
 def parse_metrics(records):
-    """Extract token and cost metrics from OTLP metric payloads.
-
-    Claude Code emits delta-temporality metrics: each export contains
-    the increment since the last export, not a running total.  We sum
-    all deltas to get the true total (including subagent usage).
-    """
     token_totals = defaultdict(float)
     cost_totals = defaultdict(float)
     api_requests = []
@@ -21,7 +15,6 @@ def parse_metrics(records):
         path = rec.get("path", "")
         payload = rec.get("payload", {})
 
-        # Handle metrics endpoint
         if "/v1/metrics" in path:
             for rm in payload.get("resourceMetrics", []):
                 for sm in rm.get("scopeMetrics", []):
@@ -29,8 +22,13 @@ def parse_metrics(records):
                         name = metric.get("name", "")
                         data = metric.get("sum", metric.get("gauge", metric.get("histogram", {})))
                         for dp in data.get("dataPoints", []):
-                            attrs = {a["key"]: a["value"].get("stringValue", a["value"].get("intValue", a["value"].get("doubleValue")))
-                                     for a in dp.get("attributes", [])}
+                            attrs = {
+                                a["key"]: a["value"].get(
+                                    "stringValue",
+                                    a["value"].get("intValue", a["value"].get("doubleValue")),
+                                )
+                                for a in dp.get("attributes", [])
+                            }
                             value = dp.get("asDouble", dp.get("asInt", 0))
 
                             if name == "claude_code.token.usage":
@@ -44,7 +42,6 @@ def parse_metrics(records):
                                 time_type = attrs.get("type", "unknown")
                                 active_time[time_type] += value
 
-        # Handle logs/events endpoint
         elif "/v1/logs" in path:
             for rl in payload.get("resourceLogs", []):
                 for sl in rl.get("scopeLogs", []):
@@ -90,7 +87,6 @@ def print_summary(log_file):
     print("=" * 60)
 
     if token_totals:
-        # Group by model
         models = sorted(set(m for m, _ in token_totals.keys()))
         for model in models:
             print(f"\n  Model: {model}")
@@ -129,6 +125,15 @@ def print_summary(log_file):
     print("=" * 60)
 
 
+def main(args=None):
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Print Claude OTEL token/cost summary")
+    parser.add_argument("log_file", nargs="?", default="/tmp/claude-otel.jsonl",
+                        help="Path to OTEL JSONL log file")
+    parsed = parser.parse_args(args)
+    print_summary(parsed.log_file)
+
+
 if __name__ == "__main__":
-    log_file = sys.argv[1] if len(sys.argv) > 1 else "/tmp/claude-otel.jsonl"
-    print_summary(log_file)
+    main()

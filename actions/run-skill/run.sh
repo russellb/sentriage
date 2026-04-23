@@ -1,5 +1,5 @@
 #!/bin/bash
-# Assembles the layered prompt, runs Claude via run-claude.sh, parses the
+# Assembles the layered prompt, runs Claude via agentic-ci, parses the
 # result, posts it as an issue comment, and sets GitHub Actions outputs.
 #
 # Required env vars:
@@ -276,7 +276,7 @@ main() {
   local prompt
   prompt=$(assemble_prompt "$skill_file" "$report_file")
 
-  # Write prompt to a file for run-claude.sh
+  # Write prompt to a file for agentic-ci
   local prompt_file="$run_dir/prompt.md"
   echo "$prompt" > "$prompt_file"
 
@@ -285,12 +285,11 @@ main() {
   touch "$RESULT_FILE" && chmod a+rw "$RESULT_FILE"
   touch "$run_dir/draft-assessment.json" && chmod a+rw "$run_dir/draft-assessment.json"
 
-  # Run Claude via run-claude.sh (handles user switching, OTEL, FIFO streaming)
+  # Run Claude via agentic-ci (handles user switching, OTEL, streaming)
   echo "--- Running Claude ---"
-  local scripts_dir="${SENTRIAGE_ROOT}/scripts"
 
   set +e
-  bash "$scripts_dir/run-claude.sh" "$(cat "$prompt_file")" "$WORKSPACE_DIR"
+  agentic-ci run "$(cat "$prompt_file")" "$WORKSPACE_DIR"
   local rc=$?
   set -e
 

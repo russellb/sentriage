@@ -46,7 +46,7 @@ jobs:
     steps:
       - name: Install container prerequisites
         run: |
-          microdnf install -y --nodocs tar gzip git-core findutils jq
+          microdnf install -y --nodocs tar gzip git-core findutils jq python3 python3-pip
           curl -fsSL https://cli.github.com/packages/rpm/gh-cli.repo > /etc/yum.repos.d/gh-cli.repo
           microdnf install -y --nodocs gh
 
@@ -59,17 +59,22 @@ jobs:
         with:
           path: instance
 
+      - name: Install Python dependencies
+        run: |
+          python3 -m venv /opt/sentriage-venv
+          /opt/sentriage-venv/bin/pip install pyyaml ./sentriage/agentic-ci/
+          echo "/opt/sentriage-venv/bin" >> "$GITHUB_PATH"
+
       - name: Setup Claude CI
         env:
           GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
           WORKSPACE_DIR: ${{ github.workspace }}
         run: |
-          bash sentriage/scripts/setup-claude-ci.sh
+          agentic-ci setup
           if [ -n "$GCP_CREDENTIALS" ]; then
             echo "$GCP_CREDENTIALS" > /tmp/gcp-key.json
             chmod 644 /tmp/gcp-key.json
           fi
-          pip3 install pyyaml
 
       - name: Fix workspace permissions
         run: |

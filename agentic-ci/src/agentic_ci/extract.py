@@ -1,11 +1,7 @@
-#!/usr/bin/env python3
 """Extract structured JSON result from Claude's stream-json output.
 
-Reads the stream-json FIFO output (captured to a file), extracts the
-final text content, parses it as JSON, and writes individual fields
-to an output directory for the GitHub Action to read.
-
-Usage: extract-result.py <stream-output-file> <output-dir>
+Reads the stream-json capture file, extracts the final text content,
+parses it as JSON, and writes individual fields to an output directory.
 """
 
 import json
@@ -27,14 +23,11 @@ def extract_text_from_stream(stream_file):
             except (json.JSONDecodeError, ValueError):
                 continue
 
-            msg_type = msg.get("type")
-            if msg_type != "stream_event":
+            if msg.get("type") != "stream_event":
                 continue
 
             event = msg.get("event", {})
-            event_type = event.get("type")
-
-            if event_type == "content_block_delta":
+            if event.get("type") == "content_block_delta":
                 delta = event.get("delta", {})
                 if delta.get("type") == "text_delta":
                     text += delta.get("text", "")
@@ -46,10 +39,8 @@ def parse_result(text):
     """Parse the JSON result from Claude's text output.
 
     Claude may output explanatory text before/after the JSON, and may
-    wrap the JSON in markdown code fences. This function finds the
-    JSON block regardless of surrounding text.
+    wrap the JSON in markdown code fences.
     """
-    # Try to extract from ```json ... ``` code fence first
     fence_match = re.search(r"```(?:json)?\s*\n(.*?)\n\s*```", text, re.DOTALL)
     if fence_match:
         try:
@@ -57,7 +48,6 @@ def parse_result(text):
         except json.JSONDecodeError:
             pass
 
-    # Try to find a top-level JSON object in the text
     brace_start = text.find("{")
     if brace_start >= 0:
         depth = 0
@@ -73,7 +63,6 @@ def parse_result(text):
                         pass
                     break
 
-    # Last resort: try parsing the whole text as JSON
     return json.loads(text.strip())
 
 
@@ -97,16 +86,15 @@ def write_outputs(result, output_dir):
         json.dump(result, f, indent=2)
 
 
-def main():
-    if len(sys.argv) < 3:
-        print(f"Usage: {sys.argv[0]} <stream-output-file> <output-dir>",
-              file=sys.stderr)
-        sys.exit(1)
+def main(args=None):
+    import argparse
 
-    stream_file = sys.argv[1]
-    output_dir = sys.argv[2]
+    parser = argparse.ArgumentParser(description="Extract JSON result from Claude stream output")
+    parser.add_argument("stream_file", help="Path to stream-json capture file")
+    parser.add_argument("output_dir", help="Directory to write extracted fields")
+    parsed = parser.parse_args(args)
 
-    text = extract_text_from_stream(stream_file)
+    text = extract_text_from_stream(parsed.stream_file)
     if not text:
         print("Error: no text content found in stream output", file=sys.stderr)
         sys.exit(1)
@@ -114,13 +102,12 @@ def main():
     try:
         result = parse_result(text)
     except json.JSONDecodeError as e:
-        print(f"Error: could not parse JSON from Claude output: {e}",
-              file=sys.stderr)
+        print(f"Error: could not parse JSON from Claude output: {e}", file=sys.stderr)
         print(f"Raw text:\n{text[:500]}", file=sys.stderr)
         sys.exit(1)
 
-    write_outputs(result, output_dir)
-    print(f"Result extracted to {output_dir}/", file=sys.stderr)
+    write_outputs(result, parsed.output_dir)
+    print(f"Result extracted to {parsed.output_dir}/", file=sys.stderr)
 
 
 if __name__ == "__main__":
