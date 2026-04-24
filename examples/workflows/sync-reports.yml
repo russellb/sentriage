@@ -1,9 +1,9 @@
 # Sync workflow: poll monitored repos for new/updated security advisories
 # and create/update tracking issues.
 #
-# Uses two tokens:
-#   GITHUB_TOKEN (default) — creates/updates issues and labels in this repo
-#   ADVISORY_TOKEN (secret) — PAT with repo scope to read advisories
+# Requires a PAT with repo scope stored as ADVISORY_TOKEN.  The default
+# Actions GITHUB_TOKEN would suppress workflow triggers, so the PAT is
+# used instead so that issue-creation events trigger triage.
 # Does NOT run Claude.
 
 name: Sentriage Sync Reports
@@ -39,7 +39,6 @@ jobs:
 
       - name: Sync reports
         env:
-          GITHUB_TOKEN: ${{ github.token }}
-          ADVISORY_TOKEN: ${{ secrets.ADVISORY_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.ADVISORY_TOKEN }}
         working-directory: instance
         run: python3 ../sentriage/scripts/sync-reports.py --config sentriage.yml
