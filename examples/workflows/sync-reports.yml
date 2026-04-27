@@ -11,7 +11,11 @@ name: Sentriage Sync Reports
 on:
   schedule:
     - cron: '0 */6 * * *'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      ghsa_id:
+        description: 'Sync only this GHSA ID (e.g. GHSA-xxxx-xxxx-xxxx)'
+        required: false
 
 permissions:
   issues: write
@@ -40,5 +44,11 @@ jobs:
       - name: Sync reports
         env:
           GITHUB_TOKEN: ${{ secrets.ADVISORY_TOKEN }}
+          GHSA_ID: ${{ inputs.ghsa_id }}
         working-directory: instance
-        run: python3 ../sentriage/scripts/sync-reports.py --config sentriage.yml
+        run: |
+          GHSA_ARG=""
+          if [ -n "$GHSA_ID" ]; then
+            GHSA_ARG="--ghsa-id $GHSA_ID"
+          fi
+          python3 ../sentriage/scripts/sync-reports.py --config sentriage.yml $GHSA_ARG

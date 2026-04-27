@@ -7,6 +7,7 @@ security_events scope — no Claude or AI access needed.
 
 Usage:
     sync-reports.py --config sentriage.yml [--initial-label needs-triage] [--dry-run]
+    sync-reports.py --config sentriage.yml --ghsa-id GHSA-xxxx-xxxx-xxxx
 
 Required environment variables:
     GITHUB_TOKEN      — PAT with repo scope.  Must be a real PAT, not the
@@ -102,19 +103,23 @@ def ensure_labels():
                "--description", f"Sentriage: {label}")
 
 
-def fetch_advisories(repo):
-    """Fetch triage and draft security advisories from a repo.
+def fetch_advisories(repo, ghsa_id=None):
+    """Fetch security advisories from a repo.
 
-    Only syncs advisories that still need attention — published advisories
-    are already public and resolved.
+    When ghsa_id is given, searches all states (triage, draft, published)
+    for that specific advisory.  Otherwise only fetches triage and draft
+    advisories that still need attention.
     """
+    states = ("triage", "draft", "published", "closed") if ghsa_id else ("triage", "draft")
     advisories = []
-    for state in ("triage", "draft"):
+    for state in states:
         try:
             out = gh("api", f"repos/{repo}/security-advisories?state={state}",
                      "--header", "Accept: application/vnd.github+json",
                      "--paginate")
             batch = json.loads(out) if out else []
+            if ghsa_id:
+                batch = [a for a in batch if a.get("ghsa_id") == ghsa_id]
             advisories.extend(batch)
             if batch:
                 print(f"  Found {len(batch)} {state} advisories")
@@ -218,10 +223,11 @@ def advisory_changed(advisory, existing_body):
     )
 
 
-def sync_repo(repo, initial_label, existing_issues, dry_run=False):
+def sync_repo(repo, initial_label, existing_issues, dry_run=False,
+              ghsa_id_filter=None):
     """Sync advisories from one repo. Returns list of new issue numbers."""
     print(f"Checking {repo} for security advisories...")
-    advisories = fetch_advisories(repo)
+    advisories = fetch_advisories(repo, ghsa_id=ghsa_id_filter)
     new_issues = []
 
     for advisory in advisories:
@@ -297,7 +303,16 @@ def main():
         "--dry-run", action="store_true",
         help="Show what would be done without making changes",
     )
+    parser.add_argument(
+        "--ghsa-id",
+        help="Sync only this GHSA ID, regardless of its state",
+    )
     args = parser.parse_args()
+
+    if args.ghsa_id and not GHSA_PATTERN.fullmatch(args.ghsa_id):
+        print(f"Error: invalid GHSA ID format: {args.ghsa_id}",
+              file=sys.stderr)
+        sys.exit(1)
 
     if not os.environ.get("GITHUB_TOKEN"):
         print("Error: GITHUB_TOKEN environment variable is required",
@@ -319,7 +334,7 @@ def main():
     for repo_config in repos:
         repo = repo_config["repo"]
         new = sync_repo(repo, args.initial_label, existing_issues,
-                        dry_run=args.dry_run)
+                        dry_run=args.dry_run, ghsa_id_filter=args.ghsa_id)
         all_new_issues.extend(new)
 
     issues_json = json.dumps(all_new_issues)
