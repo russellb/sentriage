@@ -185,6 +185,13 @@ assemble_prompt() {
   prompt+="The vulnerability report to analyze is in the file: $report_file"$'\n'
   prompt+="Read this file to begin your analysis."$'\n\n'
 
+  # Layer 6.5: Adversarial review path (so skill doesn't need Bash to resolve it)
+  local adversarial_review="${SENTRIAGE_ROOT}/skills/adversarial-review.md"
+  if [ -f "$adversarial_review" ]; then
+    prompt+="## Adversarial Review Path"$'\n\n'
+    prompt+="The adversarial review instructions are at: $adversarial_review"$'\n\n'
+  fi
+
   # Layer 7: Output file path
   prompt+="## Output"$'\n\n'
   prompt+="Write your JSON result to: ${RESULT_FILE}"
@@ -288,8 +295,15 @@ main() {
   # Run Claude via agentic-ci (handles user switching, OTEL, streaming)
   echo "--- Running Claude ---"
 
+  local agents_file="${SENTRIAGE_ROOT}/agents/agents.json"
+  local agentic_ci_args=()
+  if [ -f "$agents_file" ]; then
+    agentic_ci_args+=(--agents-file "$agents_file")
+  fi
+  agentic_ci_args+=(--allowed-tools "Read,Write,Edit,Glob,Grep,Agent")
+
   set +e
-  agentic-ci run "$(cat "$prompt_file")" "$WORKSPACE_DIR"
+  agentic-ci run "$(cat "$prompt_file")" "$WORKSPACE_DIR" "${agentic_ci_args[@]}"
   local rc=$?
   set -e
 

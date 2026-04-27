@@ -17,7 +17,8 @@ from agentic_ci.otel_summary import print_summary
 from agentic_ci.stream import StreamProcessor
 
 
-def run(prompt, workdir=".", model=None, user="claude-ci"):
+def run(prompt, workdir=".", model=None, user="claude-ci",
+        allowed_tools=None, agents_file=None):
     """Run Claude Code with telemetry and streaming output.
 
     Returns the exit code (0 for success).
@@ -28,6 +29,8 @@ def run(prompt, workdir=".", model=None, user="claude-ci"):
             sys.executable, "-m", "agentic_ci.runner",
             prompt, workdir,
             *(["--model", model] if model else []),
+            *(["--allowed-tools", allowed_tools] if allowed_tools else []),
+            *(["--agents-file", agents_file] if agents_file else []),
         ])
 
     if model is None:
@@ -100,17 +103,25 @@ def run(prompt, workdir=".", model=None, user="claude-ci"):
     os.environ["OTEL_METRIC_EXPORT_INTERVAL"] = "10000"
     os.environ["OTEL_RATE_FILE"] = otel_rate
 
+    # Build Claude command
+    claude_cmd = [
+        "claude", "-p", prompt,
+        "--model", model,
+        "--dangerously-skip-permissions",
+        "--output-format", "stream-json",
+        "--include-partial-messages",
+        "--verbose",
+    ]
+    if allowed_tools:
+        claude_cmd.extend(["--allowedTools", allowed_tools])
+    if agents_file and os.path.isfile(agents_file):
+        with open(agents_file) as f:
+            claude_cmd.extend(["--agents", f.read()])
+
     # Run Claude
     with open(stderr_log, "w") as stderr_f, open(stream_capture, "w") as capture_f:
         claude_proc = subprocess.Popen(
-            [
-                "claude", "-p", prompt,
-                "--model", model,
-                "--dangerously-skip-permissions",
-                "--output-format", "stream-json",
-                "--include-partial-messages",
-                "--verbose",
-            ],
+            claude_cmd,
             stdout=subprocess.PIPE,
             stderr=stderr_f,
         )
@@ -181,9 +192,15 @@ def main(args=None):
                         help="Working directory (default: .)")
     parser.add_argument("--model", default=None,
                         help="Claude model (default: $CLAUDE_MODEL or claude-opus-4-6)")
+    parser.add_argument("--allowed-tools", default=None,
+                        help="Comma-separated list of tools to allow")
+    parser.add_argument("--agents-file", default=None,
+                        help="Path to JSON file defining custom agents")
     parsed = parser.parse_args(args)
 
-    sys.exit(run(parsed.prompt, parsed.workdir, model=parsed.model))
+    sys.exit(run(parsed.prompt, parsed.workdir, model=parsed.model,
+                 allowed_tools=parsed.allowed_tools,
+                 agents_file=parsed.agents_file))
 
 
 if __name__ == "__main__":

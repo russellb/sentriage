@@ -164,21 +164,25 @@ in the same directory as the final result file.
 
 #### Step 2: Load Reviewer Instructions
 
-Read the adversarial review instructions from the companion skill
-file. Find it by checking the SENTRIAGE_ROOT environment variable:
-
-```bash
-echo "${SENTRIAGE_ROOT}/skills/adversarial-review.md"
-```
-
-Read that file to get the full reviewer instructions. If the file
-cannot be found, skip the adversarial review and write your
-assessment directly to the final result file.
+Read the adversarial review instructions from the path provided in
+the ADVERSARIAL_REVIEW_PATH section of your prompt. If no path was
+provided, check the SENTRIAGE_ROOT environment variable and read
+`${SENTRIAGE_ROOT}/skills/adversarial-review.md`. If neither is
+available, skip the adversarial review and write your assessment
+directly to the final result file.
 
 #### Step 3: Spawn Adversarial Reviewer
 
-Use the Agent tool to spawn an adversarial reviewer. In the Agent
-prompt, include:
+Use the Agent tool to spawn an adversarial reviewer with
+`subagent_type: "adversarial-reviewer"`. This agent type is
+restricted to Read, Write, Glob, and Grep — it cannot execute
+commands, make network requests, or access MCP tools. This
+restriction is a defense-in-depth measure: even if the untrusted
+vulnerability report contains prompt injection that bypasses
+instruction-level defenses, the reviewer cannot exfiltrate data
+or take harmful actions.
+
+In the Agent prompt, include:
 
 1. The full content of the adversarial review instructions you read
 2. The path to your draft assessment file (so the reviewer can

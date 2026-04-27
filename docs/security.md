@@ -10,11 +10,23 @@ security model and mitigations.
 
 **Threat:** Report content attempts to override agent instructions.
 
-**Mitigation:** Report content is never included in the prompt. It is
-written to a file on disk, and the prompt tells Claude to read that file.
-This prevents user-controlled data from being interpreted as instructions.
-The base instructions also tell the agent to treat the file content as
-untrusted data.
+**Mitigation (three layers):**
+
+1. **File-based separation:** Report content is never included in the
+   prompt. It is written to a file on disk, and the prompt tells Claude
+   to read that file. This prevents user-controlled data from being
+   interpreted as instructions.
+
+2. **Instruction-level framing:** The base instructions explicitly tell
+   the agent that report content is untrusted user input and must be
+   treated as data, not instructions.
+
+3. **Tool restriction:** Agents that read untrusted report content are
+   restricted to a minimum set of tools (Read, Write, Glob, Grep). Even
+   if prompt injection bypasses the instruction-level defenses, the agent
+   cannot execute commands, make network requests, or access external
+   services — limiting the blast radius of a successful injection to
+   reading files and writing results.
 
 ### Information Leakage
 

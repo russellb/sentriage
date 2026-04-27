@@ -21,6 +21,10 @@ def main():
     p_run.add_argument("prompt")
     p_run.add_argument("workdir", nargs="?", default=".")
     p_run.add_argument("--model", default=None)
+    p_run.add_argument("--allowed-tools", default=None,
+                        help="Comma-separated list of tools to allow")
+    p_run.add_argument("--agents-file", default=None,
+                        help="Path to JSON file defining custom agents")
 
     # stream
     p_stream = sub.add_parser("stream", help="Parse stream-json from stdin")
@@ -48,7 +52,9 @@ def main():
 
     elif args.command == "run":
         from agentic_ci.runner import run
-        sys.exit(run(args.prompt, args.workdir, model=args.model))
+        sys.exit(run(args.prompt, args.workdir, model=args.model,
+                     allowed_tools=args.allowed_tools,
+                     agents_file=args.agents_file))
 
     elif args.command == "stream":
         from agentic_ci.stream import StreamProcessor
