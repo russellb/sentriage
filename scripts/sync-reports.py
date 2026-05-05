@@ -259,6 +259,22 @@ def sync_repo(repo, initial_label, existing_issues, dry_run=False,
             print(f"    Closed issue #{issue_num}")
             continue
 
+        if state == "draft" and existing is not None:
+            if "accepted" not in existing["labels"]:
+                issue_num = existing["number"]
+                print(f"  Accepted upstream: {ghsa_id} (issue #{issue_num})")
+                if dry_run:
+                    print(f"    [dry-run] Would label issue #{issue_num} as accepted")
+                else:
+                    remove = [l for l in ("needs-review", "triaged")
+                              if l in existing["labels"]]
+                    if remove:
+                        gh("issue", "edit", str(issue_num),
+                           "--remove-label", ",".join(remove))
+                    gh("issue", "edit", str(issue_num),
+                       "--add-label", "accepted")
+                    print(f"    Labeled issue #{issue_num} as accepted")
+
         if existing is None:
             # Draft advisories have already been triaged upstream
             label = "accepted" if state == "draft" else initial_label
