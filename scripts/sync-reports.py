@@ -142,9 +142,9 @@ def find_existing_issues():
         return ghsa_map
 
     for issue in issues:
-        match = GHSA_PATTERN.search(issue.get("title", ""))
-        if match:
-            ghsa_map[match.group(0)] = {
+        matches = GHSA_PATTERN.findall(issue.get("title", ""))
+        if matches:
+            ghsa_map[matches[-1]] = {
                 "number": issue["number"],
                 "body": issue.get("body", ""),
             }
