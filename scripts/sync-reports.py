@@ -106,11 +106,12 @@ def ensure_labels():
 def fetch_advisories(repo, ghsa_id=None):
     """Fetch security advisories from a repo.
 
-    When ghsa_id is given, searches all states (triage, draft, published)
-    for that specific advisory.  Otherwise only fetches triage and draft
-    advisories that still need attention.
+    When ghsa_id is given, searches all states for that specific advisory.
+    Otherwise fetches triage, draft, and closed advisories so we can both
+    create new tracking issues and close issues whose advisories were
+    resolved upstream.
     """
-    states = ("triage", "draft", "published", "closed") if ghsa_id else ("triage", "draft")
+    states = ("triage", "draft", "published", "closed") if ghsa_id else ("triage", "draft", "closed")
     advisories = []
     for state in states:
         try:
@@ -135,7 +136,7 @@ def find_existing_issues():
     ghsa_map = {}
     try:
         out = gh("issue", "list", "--state", "all",
-                 "--json", "number,title,body",
+                 "--json", "number,title,body,state,labels",
                  "--limit", "1000")
         issues = json.loads(out) if out else []
     except subprocess.CalledProcessError:
@@ -147,6 +148,8 @@ def find_existing_issues():
             ghsa_map[matches[-1]] = {
                 "number": issue["number"],
                 "body": issue.get("body", ""),
+                "state": issue.get("state", "OPEN"),
+                "labels": [l["name"] for l in issue.get("labels", [])],
             }
     return ghsa_map
 
@@ -237,10 +240,27 @@ def sync_repo(repo, initial_label, existing_issues, dry_run=False,
             continue
 
         existing = existing_issues.get(ghsa_id)
+        state = advisory.get("state", "triage")
+
+        if state == "closed":
+            if existing is None or existing["state"] == "CLOSED":
+                continue
+            issue_num = existing["number"]
+            print(f"  Closed upstream: {ghsa_id} (issue #{issue_num})")
+            if dry_run:
+                print(f"    [dry-run] Would close issue #{issue_num}")
+                continue
+            if "needs-review" in existing["labels"]:
+                gh("issue", "edit", str(issue_num),
+                   "--remove-label", "needs-review")
+            gh("issue", "close", str(issue_num),
+               "--comment",
+               f"Closing: advisory {ghsa_id} was closed upstream.")
+            print(f"    Closed issue #{issue_num}")
+            continue
 
         if existing is None:
             # Draft advisories have already been triaged upstream
-            state = advisory.get("state", "triage")
             label = "accepted" if state == "draft" else initial_label
             print(f"  New ({state}): {ghsa_id} — {summary}")
             if dry_run:
@@ -260,6 +280,8 @@ def sync_repo(repo, initial_label, existing_issues, dry_run=False,
                 existing_issues[ghsa_id] = {
                     "number": issue_num,
                     "body": body,
+                    "state": "OPEN",
+                    "labels": [label],
                 }
                 print(f"    Created issue #{issue_num}")
         else:
