@@ -128,7 +128,10 @@ If they disagree, explain specifically which metrics differ and why.
 
 Draft a concise response to the reporter suitable for posting on the
 security advisory. Keep it short — a few paragraphs at most. Be direct
-about the critical points but do not elaborate extensively.
+about the critical points but do not elaborate extensively. Do not
+recap technical details that are already present in the report — the
+reporter already knows what they wrote. Focus on your conclusions,
+any disagreements, and what happens next.
 
 Begin the response with:
 > *This initial analysis was performed with AI assistance and will be
