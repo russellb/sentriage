@@ -301,6 +301,7 @@ main() {
     agentic_ci_args+=(--agents "$(cat "$agents_file")")
   fi
   agentic_ci_args+=(--allowedTools "Read,Write,Edit,Glob,Grep,Agent")
+  agentic_ci_args+=(--allow-dangerously-skip-permissions)
 
   set +e
   agentic-ci run --backend local --workdir "$WORKSPACE_DIR" "$(cat "$prompt_file")" "${agentic_ci_args[@]}"
