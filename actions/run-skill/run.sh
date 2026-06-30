@@ -162,13 +162,17 @@ assemble_prompt() {
   prompt+="$(cat "$skill_file")"
   prompt+=$'\n\n'
 
+  # Paths below are relative to the working directory. The agent runs with
+  # its cwd set to the workdir root (the sandbox uploads the workdir there),
+  # so relative paths resolve correctly regardless of the host location.
+
   # Layer 4: Context references (project security docs, etc.)
   local context_dir="$WORKSPACE_DIR/context"
   if [ -d "$context_dir" ] && [ "$(ls -A "$context_dir" 2>/dev/null)" ]; then
     prompt+="## Project Context"$'\n\n'
     prompt+="The following project documents are available for reference:"$'\n'
     for f in "$context_dir"/*; do
-      prompt+="- $(basename "$f"): $f"$'\n'
+      prompt+="- $(basename "$f"): context/$(basename "$f")"$'\n'
     done
     prompt+="Read these files for context about the project's security policies and guidelines."$'\n\n'
   fi
@@ -177,24 +181,24 @@ assemble_prompt() {
   local prepare_dir="$WORKSPACE_DIR/_prepare"
   if [ -d "$prepare_dir" ] && [ "$(ls -A "$prepare_dir" 2>/dev/null)" ]; then
     prompt+="## Prepared Context"$'\n\n'
-    prompt+="Pre-gathered data for this skill is available in: $prepare_dir"$'\n\n'
+    prompt+="Pre-gathered data for this skill is available in the directory: _prepare"$'\n\n'
   fi
 
   # Layer 6: Reference to report file (no user content in prompt)
   prompt+="## Vulnerability Report"$'\n\n'
-  prompt+="The vulnerability report to analyze is in the file: $report_file"$'\n'
+  prompt+="The vulnerability report to analyze is in the file: report.md"$'\n'
   prompt+="Read this file to begin your analysis."$'\n\n'
 
   # Layer 6.5: Adversarial review path (so skill doesn't need Bash to resolve it)
   local adversarial_review="${SENTRIAGE_ROOT}/skills/adversarial-review.md"
   if [ -f "$adversarial_review" ]; then
     prompt+="## Adversarial Review Path"$'\n\n'
-    prompt+="The adversarial review instructions are at: $adversarial_review"$'\n\n'
+    prompt+="The adversarial review instructions are at: adversarial-review.md"$'\n\n'
   fi
 
   # Layer 7: Output file path
   prompt+="## Output"$'\n\n'
-  prompt+="Write your JSON result to: ${RESULT_FILE}"
+  prompt+="Write your JSON result to: _run/result.json"
 
   echo "$prompt"
 }
@@ -283,11 +287,21 @@ main() {
   local prompt
   prompt=$(assemble_prompt "$skill_file" "$report_file")
 
-  # Write prompt to a file for agentic-ci run
+  # Write prompt to a file for agentic-ci run. The openshell sandbox rejects
+  # command arguments containing newlines, so we cannot pass the multi-line
+  # prompt directly; instead we write it into the workdir (which is uploaded
+  # to the sandbox) and pass a short single-line prompt referencing it.
   local prompt_file="$run_dir/prompt.md"
   echo "$prompt" > "$prompt_file"
 
-  # Make workspace accessible to claude-ci user
+  # Copy files referenced by relative path into the workdir so they are
+  # uploaded to the sandbox (openshell only uploads the workdir, not
+  # SENTRIAGE_ROOT).
+  if [ -f "${SENTRIAGE_ROOT}/skills/adversarial-review.md" ]; then
+    cp "${SENTRIAGE_ROOT}/skills/adversarial-review.md" "$WORKSPACE_DIR/adversarial-review.md"
+  fi
+
+  # Make workspace world-readable for upload; ensure output files exist.
   chmod -R a+rX "$WORKSPACE_DIR"
   touch "$RESULT_FILE" && chmod a+rw "$RESULT_FILE"
   touch "$run_dir/draft-assessment.json" && chmod a+rw "$run_dir/draft-assessment.json"
@@ -302,16 +316,22 @@ main() {
     agentic_ci_flags+=(--image "$CLAUDE_CONTAINER_IMAGE")
   fi
 
-  # Extra args forwarded to the agent CLI (after the prompt).
+  # Extra args forwarded to the agent CLI (after the prompt). The agents JSON
+  # must be a single line — the openshell sandbox rejects arguments with
+  # newlines — so compact it with jq.
   local agents_file="${SENTRIAGE_ROOT}/agents/agents.json"
   local agentic_ci_args=()
   if [ -f "$agents_file" ]; then
-    agentic_ci_args+=(--agents "$(cat "$agents_file")")
+    agentic_ci_args+=(--agents "$(jq -c . "$agents_file")")
   fi
   agentic_ci_args+=(--allowedTools "Read,Write,Edit,Glob,Grep,Agent")
 
+  # Single-line prompt (no newlines) that points the agent at the full
+  # instructions written into the workdir above.
+  local run_prompt="Read the file _run/prompt.md and follow its instructions exactly. It is the complete task specification for this run."
+
   set +e
-  agentic-ci run "${agentic_ci_flags[@]}" "$(cat "$prompt_file")" "${agentic_ci_args[@]}"
+  agentic-ci run "${agentic_ci_flags[@]}" "$run_prompt" "${agentic_ci_args[@]}"
   local rc=$?
   set -e
 
