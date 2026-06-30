@@ -295,6 +295,14 @@ main() {
   # Run Claude via agentic-ci (handles OTEL, streaming)
   echo "--- Running Claude ---"
 
+  # agentic-ci flags (before the prompt). The openshell backend takes the
+  # sandbox image from --image, not the CLAUDE_CONTAINER_IMAGE env var.
+  local agentic_ci_flags=(--backend openshell --workdir "$WORKSPACE_DIR")
+  if [ -n "${CLAUDE_CONTAINER_IMAGE:-}" ]; then
+    agentic_ci_flags+=(--image "$CLAUDE_CONTAINER_IMAGE")
+  fi
+
+  # Extra args forwarded to the agent CLI (after the prompt).
   local agents_file="${SENTRIAGE_ROOT}/agents/agents.json"
   local agentic_ci_args=()
   if [ -f "$agents_file" ]; then
@@ -303,7 +311,7 @@ main() {
   agentic_ci_args+=(--allowedTools "Read,Write,Edit,Glob,Grep,Agent")
 
   set +e
-  agentic-ci run --backend openshell --workdir "$WORKSPACE_DIR" "$(cat "$prompt_file")" "${agentic_ci_args[@]}"
+  agentic-ci run "${agentic_ci_flags[@]}" "$(cat "$prompt_file")" "${agentic_ci_args[@]}"
   local rc=$?
   set -e
 

@@ -46,12 +46,6 @@ jobs:
       GITHUB_TOKEN: ${{ github.token }}
       SENTRIAGE_ROOT: ${{ github.workspace }}/sentriage
     steps:
-      - name: Configure container storage
-        run: |
-          : > /etc/subuid
-          : > /etc/subgid
-          printf '[storage]\ndriver = "vfs"\n' > /etc/containers/storage.conf
-
       - uses: actions/checkout@v4
         with:
           repository: russellb/sentriage
