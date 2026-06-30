@@ -29,6 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: quay.io/aipcc/agentic-ci/openshell:0.3.13
+      options: --privileged
     timeout-minutes: 60
     env:
       # --- AI backend config (Vertex AI example) ---
