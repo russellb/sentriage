@@ -1,7 +1,7 @@
 # Triage workflow: run Claude skills when new issues are created or
 # when the needs-triage label is applied.
 #
-# Runs in a UBI9 container with Claude Code installed.
+# Runs in the agentic-ci OpenShell image with sandboxed Claude execution.
 # Uses the default GITHUB_TOKEN — no access to monitored repos.
 #
 # Required secrets:
@@ -28,7 +28,7 @@ jobs:
       (github.event.action == 'labeled' && github.event.label.name == 'needs-triage')
     runs-on: ubuntu-latest
     container:
-      image: registry.access.redhat.com/ubi10/ubi-minimal:latest
+      image: quay.io/aipcc/agentic-ci/openshell:0.3.13
     timeout-minutes: 60
     env:
       # --- AI backend config (Vertex AI example) ---
@@ -39,16 +39,17 @@ jobs:
       # --- For direct Anthropic API, replace the above with: ---
       # ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       # ---
-      DISABLE_AUTOUPDATER: "1"
       CLAUDE_MODEL: "claude-opus-4-6"
+      CLAUDE_CONTAINER_IMAGE: "quay.io/aipcc/agentic-ci/claude-sandbox:0.3.13"
+      OPENSHELL_SUPERVISOR_IMAGE: "quay.io/mprpic/openshell-supervisor:pr1763"
       GITHUB_TOKEN: ${{ github.token }}
       SENTRIAGE_ROOT: ${{ github.workspace }}/sentriage
     steps:
-      - name: Install container prerequisites
+      - name: Configure container storage
         run: |
-          microdnf install -y --nodocs tar gzip git-core findutils jq python3 python3-pip
-          curl -fsSL https://cli.github.com/packages/rpm/gh-cli.repo > /etc/yum.repos.d/gh-cli.repo
-          microdnf install -y --nodocs gh
+          : > /etc/subuid
+          : > /etc/subgid
+          printf '[storage]\ndriver = "vfs"\n' > /etc/containers/storage.conf
 
       - uses: actions/checkout@v4
         with:
@@ -59,25 +60,14 @@ jobs:
         with:
           path: instance
 
-      - name: Install Python dependencies
-        run: |
-          python3 -m venv /opt/sentriage-venv
-          /opt/sentriage-venv/bin/pip install pyyaml agentic-ci
-          echo "/opt/sentriage-venv/bin" >> "$GITHUB_PATH"
-
-      - name: Setup Claude CI
+      - name: Setup credentials
         env:
           GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
         run: |
-          curl -fsSL https://claude.ai/install.sh | bash
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           if [ -n "$GCP_CREDENTIALS" ]; then
             echo "$GCP_CREDENTIALS" > /tmp/gcp-key.json
             chmod 644 /tmp/gcp-key.json
           fi
-
-      - name: Fix workspace permissions
-        run: |
           chmod -R a+rwX "$GITHUB_WORKSPACE"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/instance"
           git config --global --add safe.directory "$GITHUB_WORKSPACE/sentriage"
