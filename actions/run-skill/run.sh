@@ -84,12 +84,24 @@ print(json.dumps(repos))
     repo_name=$(echo "$repo_config" | jq -r '.repo')
     local clone_dir="$workspace/$(echo "$repo_name" | tr '/' '_')"
 
+    local authed_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${repo_name}.git"
+    local clean_url="https://github.com/${repo_name}.git"
+
     if [ -d "$clone_dir" ]; then
       echo "Updating $repo_name..."
+      git -C "$clone_dir" remote set-url origin "$authed_url"
       git -C "$clone_dir" pull --ff-only 2>/dev/null || true
     else
       echo "Cloning $repo_name..."
-      git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${repo_name}.git" "$clone_dir" 2>/dev/null
+      git clone "$authed_url" "$clone_dir" 2>/dev/null
+    fi
+
+    # Scrub the token from the stored remote URL. The workdir (including
+    # .git/config) is uploaded into the openshell sandbox where the agent
+    # processes untrusted reports; leaving the token in .git/config would
+    # expose it to prompt-injection exfiltration.
+    if [ -d "$clone_dir/.git" ]; then
+      git -C "$clone_dir" remote set-url origin "$clean_url"
     fi
   done
 }
