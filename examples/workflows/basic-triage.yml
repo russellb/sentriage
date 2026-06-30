@@ -62,15 +62,15 @@ jobs:
       - name: Install Python dependencies
         run: |
           python3 -m venv /opt/sentriage-venv
-          /opt/sentriage-venv/bin/pip install pyyaml ./sentriage/agentic-ci/
+          /opt/sentriage-venv/bin/pip install pyyaml agentic-ci
           echo "/opt/sentriage-venv/bin" >> "$GITHUB_PATH"
 
       - name: Setup Claude CI
         env:
           GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-          WORKSPACE_DIR: ${{ github.workspace }}
         run: |
-          agentic-ci setup
+          curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           if [ -n "$GCP_CREDENTIALS" ]; then
             echo "$GCP_CREDENTIALS" > /tmp/gcp-key.json
             chmod 644 /tmp/gcp-key.json

@@ -1,6 +1,6 @@
 #!/bin/bash
-# Assembles the layered prompt, runs Claude via agentic-ci, parses the
-# result, posts it as an issue comment, and sets GitHub Actions outputs.
+# Assembles the layered prompt, runs Claude via agentic-ci (PyPI),
+# parses the result, posts it as an issue comment, and sets GitHub Actions outputs.
 #
 # Required env vars:
 #   GITHUB_TOKEN       — token for the instance repo (issues, comments)
@@ -283,7 +283,7 @@ main() {
   local prompt
   prompt=$(assemble_prompt "$skill_file" "$report_file")
 
-  # Write prompt to a file for agentic-ci
+  # Write prompt to a file for agentic-ci run
   local prompt_file="$run_dir/prompt.md"
   echo "$prompt" > "$prompt_file"
 
@@ -292,18 +292,18 @@ main() {
   touch "$RESULT_FILE" && chmod a+rw "$RESULT_FILE"
   touch "$run_dir/draft-assessment.json" && chmod a+rw "$run_dir/draft-assessment.json"
 
-  # Run Claude via agentic-ci (handles user switching, OTEL, streaming)
+  # Run Claude via agentic-ci (handles OTEL, streaming)
   echo "--- Running Claude ---"
 
   local agents_file="${SENTRIAGE_ROOT}/agents/agents.json"
   local agentic_ci_args=()
   if [ -f "$agents_file" ]; then
-    agentic_ci_args+=(--agents-file "$agents_file")
+    agentic_ci_args+=(--agents "$(cat "$agents_file")")
   fi
-  agentic_ci_args+=(--allowed-tools "Read,Write,Edit,Glob,Grep,Agent")
+  agentic_ci_args+=(--allowedTools "Read,Write,Edit,Glob,Grep,Agent")
 
   set +e
-  agentic-ci run "$(cat "$prompt_file")" "$WORKSPACE_DIR" "${agentic_ci_args[@]}"
+  agentic-ci run --backend local --workdir "$WORKSPACE_DIR" "$(cat "$prompt_file")" "${agentic_ci_args[@]}"
   local rc=$?
   set -e
 
